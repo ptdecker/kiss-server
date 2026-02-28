@@ -19,8 +19,9 @@
 ### Routing
 
 - [ ] **ROUT-01**: Router dispatches requests to handlers registered in registration order
-- [ ] **ROUT-02**: `Handler` trait defines a shared interface for static files and future REST endpoints
+- [ ] **ROUT-02**: `Handler` trait takes `&mut Context` and mutates the response in place (no return value reconstruction), enabling zero-copy middleware composition
 - [ ] **ROUT-03**: Unmatched routes fall through to a `NotFoundHandler` fallback
+- [ ] **ROUT-04**: `Context` struct holds `Request` and `Response` as mutable shared pipeline state passed through the entire handler and future middleware chain
 
 ### URL and Path Safety
 
@@ -52,6 +53,11 @@
 - [ ] **TIME-03**: DateTime exposes IMF-fixdate formatting for the HTTP `Date:` response header
 
 ## v2 Requirements
+
+### Middleware
+
+- **ROUT-05**: Middleware trait with `call(&self, ctx: &mut Context, next: &dyn Fn(&mut Context) -> Result<()>) -> Result<()>` — middleware modifies request before calling `next`, and mutates response in place after, with no reconstruction overhead
+- **ROUT-06**: Router supports an ordered middleware chain applied before handler dispatch
 
 ### Connection Management
 
@@ -95,6 +101,7 @@
 | ROUT-01 | — | Pending |
 | ROUT-02 | — | Pending |
 | ROUT-03 | — | Pending |
+| ROUT-04 | — | Pending |
 | PATH-01 | — | Pending |
 | PATH-02 | — | Pending |
 | PATH-03 | — | Pending |
@@ -114,9 +121,9 @@
 | TIME-03 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 28 total
+- v1 requirements: 29 total
 - Mapped to phases: 0
-- Unmapped: 28 ⚠️ (roadmap creation pending)
+- Unmapped: 29 ⚠️ (roadmap creation pending)
 
 ---
 *Requirements defined: 2026-02-28*
