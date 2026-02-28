@@ -34,7 +34,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The server process does not double-panic when the thread pool is dropped during shutdown
   4. The server stops reading request headers after 100 lines, without hanging indefinitely
   5. DateTime year and month are computed via arithmetic formula, not iterative loops
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — DateTime arithmetic + safe error propagation (SAFE-02, TIME-01, TIME-02)
+- [ ] 01-02-PLAN.md — Server safety fixes: mutex poison, Drop, header limit, routing cleanup (SAFE-03, SAFE-04, SAFE-05, SAFE-06)
 
 ### Phase 2: Response and HTTP Compliance
 **Goal**: Every response the server sends is a valid HTTP/1.1 message: CRLF-terminated lines, correct mandatory headers, and byte-accurate Content-Length
