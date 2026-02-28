@@ -1,0 +1,123 @@
+# Requirements: ptodd
+
+**Defined:** 2026-02-28
+**Core Value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
+
+## v1 Requirements
+
+### Core HTTP
+
+- [ ] **HTTP-01**: Server includes `Content-Type` header on all responses
+- [ ] **HTTP-02**: Server includes `Content-Length` header (byte length) on all responses
+- [ ] **HTTP-03**: Server includes `Date` header in IMF-fixdate format on all responses
+- [ ] **HTTP-04**: Server includes `Connection: close` header on all responses
+- [ ] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
+- [ ] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
+- [ ] **HTTP-07**: Server responds 404 Not Found when no route matches
+- [ ] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
+
+### Routing
+
+- [ ] **ROUT-01**: Router dispatches requests to handlers registered in registration order
+- [ ] **ROUT-02**: `Handler` trait defines a shared interface for static files and future REST endpoints
+- [ ] **ROUT-03**: Unmatched routes fall through to a `NotFoundHandler` fallback
+
+### URL and Path Safety
+
+- [ ] **PATH-01**: Server percent-decodes request paths before routing and file resolution
+- [ ] **PATH-02**: Server rejects paths with `..` components, returning 404
+- [ ] **PATH-03**: Server uses `canonicalize()` + `starts_with(root)` check to prevent path traversal, returning 404
+
+### Static File Serving
+
+- [ ] **FILE-01**: Server reads files with binary-safe `fs::read()` (not `read_to_string`)
+- [ ] **FILE-02**: Server detects MIME type from file extension and sets `Content-Type` accordingly
+- [ ] **FILE-03**: Static file root directory is configurable via CLI argument at startup
+- [ ] **FILE-04**: Server handles HEAD requests by returning headers only (no body)
+- [ ] **FILE-05**: Server returns 404 when a requested static file does not exist
+
+### Reliability and Safety
+
+- [ ] **SAFE-01**: Server returns 400 response (not panic) on malformed or non-UTF-8 request input
+- [ ] **SAFE-02**: `DateTime::now()` uses safe error propagation — remove `unsafe { unwrap_unchecked() }`
+- [ ] **SAFE-03**: Worker threads handle poisoned mutex without panicking
+- [ ] **SAFE-04**: `ThreadPool::drop()` never panics — use `let _ = thread.join()`
+- [ ] **SAFE-05**: Server enforces maximum of 100 request header lines
+- [ ] **SAFE-06**: `Cargo.lock` committed to version control
+
+### DateTime
+
+- [ ] **TIME-01**: DateTime year calculation uses arithmetic formula (not iteration from 1970)
+- [ ] **TIME-02**: DateTime month calculation uses arithmetic (not sequential iteration)
+- [ ] **TIME-03**: DateTime exposes IMF-fixdate formatting for the HTTP `Date:` response header
+
+## v2 Requirements
+
+### Connection Management
+
+- **CONN-01**: Server supports HTTP/1.1 persistent connections (keep-alive)
+- **CONN-02**: Server respects `Connection: close` request header to close early
+
+### Observability
+
+- **OBS-01**: Server tracks request count, error rate, and response times
+- **OBS-02**: Server exposes a `/metrics` or `/_health` endpoint
+
+### Shutdown
+
+- **SHUT-01**: Server handles SIGTERM/SIGINT for graceful shutdown (note: not achievable from safe `std` alone — requires OS-specific workaround or minimal unsafe)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| TLS / HTTPS | Out of scope for v1; significant complexity, no std API |
+| HTTP/2 | Out of scope; requires frame-based protocol, binary format |
+| Async I/O (tokio/async-std) | Stays synchronous with thread pool |
+| Authentication / authorization | Intentionally open service |
+| Directory listing | Serve files, not indexes |
+| Config file | CLI args and env vars are sufficient |
+| Compression (gzip/brotli) | No std API; requires external crate |
+| 403 on traversal | Returns 404 instead — avoids leaking detection |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| HTTP-01 | — | Pending |
+| HTTP-02 | — | Pending |
+| HTTP-03 | — | Pending |
+| HTTP-04 | — | Pending |
+| HTTP-05 | — | Pending |
+| HTTP-06 | — | Pending |
+| HTTP-07 | — | Pending |
+| HTTP-08 | — | Pending |
+| ROUT-01 | — | Pending |
+| ROUT-02 | — | Pending |
+| ROUT-03 | — | Pending |
+| PATH-01 | — | Pending |
+| PATH-02 | — | Pending |
+| PATH-03 | — | Pending |
+| FILE-01 | — | Pending |
+| FILE-02 | — | Pending |
+| FILE-03 | — | Pending |
+| FILE-04 | — | Pending |
+| FILE-05 | — | Pending |
+| SAFE-01 | — | Pending |
+| SAFE-02 | — | Pending |
+| SAFE-03 | — | Pending |
+| SAFE-04 | — | Pending |
+| SAFE-05 | — | Pending |
+| SAFE-06 | — | Pending |
+| TIME-01 | — | Pending |
+| TIME-02 | — | Pending |
+| TIME-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 28 total
+- Mapped to phases: 0
+- Unmapped: 28 ⚠️ (roadmap creation pending)
+
+---
+*Requirements defined: 2026-02-28*
+*Last updated: 2026-02-28 after initial definition*
