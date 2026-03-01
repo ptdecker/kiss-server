@@ -4,18 +4,17 @@
 //! pool to handle incoming connections. It has no third-party crate dependencies.
 
 use std::{
-    fmt, fs,
+    fmt,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     result,
     sync::{mpsc, Arc, Mutex},
     thread,
-    time::Duration,
 };
 
 pub use error::{Error, Result};
 use pool::ThreadPool;
-use request::Request;
+use request::{Request, RequestMethod};
 
 use super::*;
 
@@ -75,32 +74,87 @@ impl Server {
 
 fn handle_connection(mut stream: TcpStream) -> Result<()> {
     info!("handling a connection");
-    let http_request: Vec<_> = BufReader::new(&mut stream)
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
+    let http_request: Vec<String> = {
+        let mut lines = Vec::new();
+        let mut reader = BufReader::new(&mut stream);
+        let mut buf = String::new();
+        loop {
+            buf.clear();
+            match reader.read_line(&mut buf) {
+                Ok(0) => break, // EOF
+                Ok(_) => {
+                    let line = buf.trim_end_matches(['\r', '\n']).to_string();
+                    if line.is_empty() {
+                        break; // blank line = end of headers
+                    }
+                    lines.push(line);
+                }
+                Err(e) => return Err(e.into()), // invalid UTF-8 or I/O error
+            }
+            if lines.len() > request::MAX_HEADER_LINES {
+                return Err(Error::RequestTooLarge);
+            }
+        }
+        lines
+    };
+    if http_request.is_empty() {
+        return Ok(()); // empty request — close connection silently
+    }
     let request = Request::parse(&http_request)?;
     info!("{}", http_request[0]);
     info!("Method: {}", request.method);
     info!("Target: {}", request.target);
     debug!("Request ({:?}): {:#?}", stream.peer_addr()?, http_request);
-    let (status_line, filename) = match http_request[0].as_str() {
-        "GET / HTTP/1.1" => ("HTTP/1.1 200 OK", "hello.html"),
-        "GET /sleep HTTP/1.1" => {
-            thread::sleep(Duration::from_secs(5));
-            ("HTTP/1.1 200 OK", "hello.html")
-        }
-        _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
-    };
-    let contents = fs::read_to_string(filename)?;
     // TODO: Send date in response header (Cf. RFC-9110 6.6.1)
-    stream.write_all(
-        format!(
-            "{status_line}\r\nContent-Length: {}\r\n\r\n{contents}",
-            contents.len()
-        )
-        .as_bytes(),
-    )?;
+    match (&request.method, request.target.to_string().as_str()) {
+        (RequestMethod::Get, "/") => {
+            let body = "OK";
+            stream.write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                    body.len(),
+                    body
+                )
+                .as_bytes(),
+            )?;
+        }
+        _ => {
+            // Unmatched routes: close connection without response (routing is Phase 3's job)
+        }
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::net::{TcpListener, TcpStream};
+    use std::thread;
+
+    fn spawn_handle_connection_test(send_bytes: &'static [u8]) -> Result<()> {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client.write_all(send_bytes).unwrap();
+            drop(client);
+        });
+        let (stream, _) = listener.accept().unwrap();
+        handle_connection(stream)
+    }
+
+    #[test]
+    fn invalid_utf8_returns_err_not_panic() {
+        // Send raw binary bytes — invalid UTF-8
+        let result = spawn_handle_connection_test(b"\xFF\xFE binary garbage\r\n\r\n");
+        // Must return Err, not panic
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn get_root_returns_200() {
+        let result = spawn_handle_connection_test(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        assert!(result.is_ok());
+    }
 }

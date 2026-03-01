@@ -60,7 +60,7 @@ impl Drop for ThreadPool {
         for worker in &mut self.workers {
             debug!("Shutting down worker {}", worker.id);
             if let Some(thread) = worker.thread.take() {
-                thread.join().expect("unable to join associated thread");
+                let _ = thread.join();
             }
         }
     }

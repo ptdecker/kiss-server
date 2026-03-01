@@ -16,7 +16,10 @@ impl Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver
                 .lock()
-                .expect("unable to lock spawned thread")
+                .unwrap_or_else(|e| {
+                    warn!("Worker {id}: receiver mutex poisoned, recovering");
+                    e.into_inner()
+                })
                 .recv();
             match message {
                 Ok(job) => {
