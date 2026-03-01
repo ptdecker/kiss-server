@@ -40,16 +40,16 @@
 ### Reliability and Safety
 
 - [ ] **SAFE-01**: Server returns 400 response (not panic) on malformed or non-UTF-8 request input
-- [ ] **SAFE-02**: `DateTime::now()` uses safe error propagation — remove `unsafe { unwrap_unchecked() }`
-- [ ] **SAFE-03**: Worker threads handle poisoned mutex without panicking
-- [ ] **SAFE-04**: `ThreadPool::drop()` never panics — use `let _ = thread.join()`
-- [ ] **SAFE-05**: Server enforces maximum of 100 request header lines
-- [ ] **SAFE-06**: `Cargo.lock` committed to version control
+- [x] **SAFE-02**: `DateTime::now()` uses safe error propagation — remove `unsafe { unwrap_unchecked() }`
+- [x] **SAFE-03**: Worker threads handle poisoned mutex without panicking
+- [x] **SAFE-04**: `ThreadPool::drop()` never panics — use `let _ = thread.join()`
+- [x] **SAFE-05**: Server enforces maximum of 100 request header lines
+- [x] **SAFE-06**: `Cargo.lock` committed to version control
 
 ### DateTime
 
-- [ ] **TIME-01**: DateTime year calculation uses arithmetic formula (not iteration from 1970)
-- [ ] **TIME-02**: DateTime month calculation uses arithmetic (not sequential iteration)
+- [x] **TIME-01**: DateTime year calculation uses arithmetic formula (not iteration from 1970)
+- [x] **TIME-02**: DateTime month calculation uses arithmetic (not sequential iteration)
 - [ ] **TIME-03**: DateTime exposes IMF-fixdate formatting for the HTTP `Date:` response header
 
 ## v2 Requirements
@@ -111,13 +111,13 @@
 | FILE-04 | Phase 5 | Pending |
 | FILE-05 | Phase 5 | Pending |
 | SAFE-01 | Phase 2 | Pending |
-| SAFE-02 | Phase 1 | Pending |
-| SAFE-03 | Phase 1 | Pending |
-| SAFE-04 | Phase 1 | Pending |
-| SAFE-05 | Phase 1 | Pending |
-| SAFE-06 | Phase 1 | Pending |
-| TIME-01 | Phase 1 | Pending |
-| TIME-02 | Phase 1 | Pending |
+| SAFE-02 | Phase 1 | Complete |
+| SAFE-03 | Phase 1 | Complete |
+| SAFE-04 | Phase 1 | Complete |
+| SAFE-05 | Phase 1 | Complete |
+| SAFE-06 | Phase 1 | Complete |
+| TIME-01 | Phase 1 | Complete |
+| TIME-02 | Phase 1 | Complete |
 | TIME-03 | Phase 2 | Pending |
 
 **Coverage:**

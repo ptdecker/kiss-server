@@ -16,7 +16,7 @@ dependency order. Each phase leaves the server in a testable, working state.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Fixes** - Eliminate crashes, unsafe code, and silent DoS vectors before any new code is added
+- [x] **Phase 1: Foundation Fixes** - Eliminate crashes, unsafe code, and silent DoS vectors before any new code is added
 - [ ] **Phase 2: Response and HTTP Compliance** - Build the Response struct with mandatory HTTP/1.1 headers; all responses use CRLF and correct byte serialization
 - [ ] **Phase 3: Handler, Context, and Router** - Define the Context/Handler/Router abstractions and wire them into the server; 404 and 500 responses dispatched through the pipeline
 - [ ] **Phase 4: URL Path Safety** - Add path() and decoded_path() to Url; enforce dot-dot rejection and canonicalize-based traversal prevention
@@ -37,8 +37,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — DateTime arithmetic + safe error propagation (SAFE-02, TIME-01, TIME-02)
-- [ ] 01-02-PLAN.md — Server safety fixes: mutex poison, Drop, header limit, routing cleanup (SAFE-03, SAFE-04, SAFE-05, SAFE-06)
+- [x] 01-01-PLAN.md — DateTime arithmetic + safe error propagation (SAFE-02, TIME-01, TIME-02)
+- [x] 01-02-PLAN.md — Server safety fixes: mutex poison, Drop, header limit, routing cleanup (SAFE-03, SAFE-04, SAFE-05, SAFE-06)
 
 ### Phase 2: Response and HTTP Compliance
 **Goal**: Every response the server sends is a valid HTTP/1.1 message: CRLF-terminated lines, correct mandatory headers, and byte-accurate Content-Length
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Fixes | 0/TBD | Not started | - |
+| 1. Foundation Fixes | 2/2 | Complete   | 2026-03-01 |
 | 2. Response and HTTP Compliance | 0/TBD | Not started | - |
 | 3. Handler, Context, and Router | 0/TBD | Not started | - |
 | 4. URL Path Safety | 0/TBD | Not started | - |
