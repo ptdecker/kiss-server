@@ -4,6 +4,10 @@ use crate::url::Url;
 
 use super::*;
 
+/// Maximum number of header lines accepted in a single request.
+/// Requests exceeding this limit are rejected with Error::RequestTooLarge.
+pub(super) const MAX_HEADER_LINES: usize = 100;
+
 /// Request Methods (RFC-9110 7.1)
 ///
 /// Cf. <https://datatracker.ietf.org/doc/html/rfc9110#name-overview>
@@ -64,6 +68,9 @@ pub(super) struct Request {
 
 impl Request {
     pub(super) fn parse(raw_request: &[String]) -> Result<Request> {
+        if raw_request.len() > MAX_HEADER_LINES {
+            return Err(Error::RequestTooLarge);
+        }
         if raw_request.is_empty() {
             return Err(Error::InvalidRequest(String::from(
                 "cannot parse empty request",
@@ -86,5 +93,32 @@ impl Request {
             method: control_data_parts[0].try_into()?,
             target: control_data_parts[1].into(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_valid_get_root() {
+        let lines = vec!["GET / HTTP/1.1".to_string()];
+        assert!(Request::parse(&lines).is_ok());
+    }
+
+    #[test]
+    fn parse_too_many_headers() {
+        // 101 lines should trigger RequestTooLarge
+        let lines: Vec<String> = (0..=MAX_HEADER_LINES)
+            .map(|i| format!("X-Header-{}: value", i))
+            .collect();
+        let result = Request::parse(&lines);
+        assert!(matches!(result, Err(Error::RequestTooLarge)));
+    }
+
+    #[test]
+    fn parse_empty_returns_err() {
+        let lines: Vec<String> = vec![];
+        assert!(Request::parse(&lines).is_err());
     }
 }

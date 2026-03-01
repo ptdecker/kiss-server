@@ -3,9 +3,6 @@
 //! This is implemented as a facade around std::time::SystemTime mainly so that
 //! we can implement a Display trait for SystemTime
 
-// TODO: remove unused linting override
-#![allow(unused)]
-
 use std::{
     fmt, result,
     time::{SystemTime, UNIX_EPOCH},
@@ -74,7 +71,7 @@ impl TryFrom<u8> for Month {
     }
 }
 
-// Implement TryInto<u8> for Month
+// Implement From<Month> for u8
 impl From<Month> for u8 {
     fn from(month: Month) -> Self {
         month as u8
@@ -136,6 +133,7 @@ where
 }
 
 /// Determine the number of days in a month of a given year
+#[allow(dead_code)]
 pub fn days_in_month<T, U>(year: T, month: U) -> u8
 where
     T: Into<u16>,
@@ -163,89 +161,79 @@ where
     }
 }
 
-// Determine the year given the number of days since the Unix epoch
-//
-// This calculation is done via brute force by iterating through the years
-fn year<T>(epoch_days: T) -> (u16, u16)
-where
-    T: Into<u64>,
-{
-    let epoch_days: u64 = epoch_days.into();
-    let mut year = 1970u16;
-    let mut remaining_days = epoch_days;
-    loop {
-        match is_leap_year(year) {
-            false if remaining_days <= 365 => break,
-            false => {
-                remaining_days -= 365;
-            }
-            true if remaining_days <= 366 => break,
-            true => {
-                remaining_days -= 366;
-            }
-        };
-        year += 1;
-    }
-    (year, remaining_days as u16)
-}
-
-// Determine the month given the day of the year
-//
-// This calculation is done via brute force by iterating through the years
-fn month<T>(year: T, day_of_year: T) -> (Month, u8)
-where
-    T: Into<u16> + Copy,
-{
-    let mut month = Month::January;
-    let mut remaining_days: u16 = day_of_year.into();
-    loop {
-        let days_in_month = days_in_month(year, month) as u16;
-        if remaining_days <= days_in_month {
-            break;
-        };
-        remaining_days -= days_in_month;
-        month = month.next_month();
-    }
-    (month, remaining_days as u8)
+/// Convert an epoch day count to a proleptic Gregorian calendar date.
+///
+/// Uses Howard Hinnant's O(1) civil_from_days algorithm.
+/// Source: https://howardhinnant.github.io/date_algorithms.html
+///
+/// Returns (year, month, day) where month is 1-based.
+fn civil_from_days(epoch_days: i64) -> (i32, u8, u8) {
+    let z = epoch_days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m as u8, d as u8)
 }
 
 impl DateTime {
     /// Retrieves the current time
-    pub fn now() -> DateTime {
+    pub fn now() -> Result<DateTime> {
         let now = SystemTime::now();
-        let duration = unsafe { now.duration_since(UNIX_EPOCH).unwrap_unchecked() };
+        let duration = now.duration_since(UNIX_EPOCH)?;
         let epoch_seconds = duration.as_secs();
-        let epoch_days = epoch_seconds / 86_400;
-        let (year, day_of_year) = year(epoch_days);
-        let (month, day) = month(year, day_of_year);
-
-        DateTime {
+        let epoch_days = (epoch_seconds / 86_400) as i64;
+        let (year, month_num, day) = civil_from_days(epoch_days);
+        let month = Month::try_from(month_num)?;
+        // Compute day_of_year using a cumulative days-before-month lookup (O(1), no loop).
+        let days_before_month: [u16; 13] =
+            [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        let leap = is_leap_year(year as u16);
+        let doy = days_before_month[month_num as usize]
+            + if leap && month_num > 2 { 1 } else { 0 }
+            + day as u16;
+        Ok(DateTime {
             epoch_seconds,
             epoch_sub_nanoseconds: duration.subsec_nanos(),
-            epoch_days,
-            year,
-            day_of_year,
+            epoch_days: epoch_days as u64,
+            year: year as u16,
+            day_of_year: doy,
             month,
             day,
-        }
+        })
     }
+
     /// The year
+    #[allow(dead_code)]
     pub fn year(&self) -> u16 {
         self.year
     }
+
     /// The month
+    #[allow(dead_code)]
     pub fn month(&self) -> Month {
         self.month
     }
+
     /// The day
+    #[allow(dead_code)]
     pub fn day(&self) -> u8 {
         self.day
     }
+
     /// The day of the year
+    #[allow(dead_code)]
     pub fn day_of_year(&self) -> u16 {
         self.day_of_year
     }
+
     /// Is it a leap year
+    #[allow(dead_code)]
     pub fn is_leap_year(&self) -> bool {
         is_leap_year(self.year)
     }
@@ -255,7 +243,6 @@ impl DateTime {
 mod tests {
     use super::*;
 
-    // Make sure the leap year function tests
     #[test]
     fn leap_year() {
         // not leap year - div 100 true, div 400 false
@@ -266,5 +253,30 @@ mod tests {
         assert!(!is_leap_year(2019u16));
         // leap year - div 4 true, div 100 false
         assert!(is_leap_year(2020u16));
+    }
+
+    #[test]
+    fn civil_from_days_epoch_zero() {
+        // 1970-01-01
+        assert_eq!(civil_from_days(0), (1970, 1, 1));
+    }
+
+    #[test]
+    fn civil_from_days_y2k() {
+        // 2000-01-01 = epoch day 10957
+        assert_eq!(civil_from_days(10957), (2000, 1, 1));
+    }
+
+    #[test]
+    fn civil_from_days_2002() {
+        // 2002-01-01 = epoch day 11688
+        assert_eq!(civil_from_days(11688), (2002, 1, 1));
+    }
+
+    #[test]
+    fn datetime_now_returns_result() {
+        // DateTime::now() must succeed on normal hardware; just verify it compiles and Ok
+        let result = DateTime::now();
+        assert!(result.is_ok());
     }
 }

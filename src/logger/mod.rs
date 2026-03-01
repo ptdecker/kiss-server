@@ -53,9 +53,12 @@ impl Log for SimpleLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
+            let timestamp = DateTime::now()
+                .map(|dt| dt.to_string())
+                .unwrap_or_else(|_| "[unknown]".to_string());
             eprintln!(
                 "{}: {}: {}: {}",
-                DateTime::now(),
+                timestamp,
                 record.level(),
                 record.target(),
                 record.args()
