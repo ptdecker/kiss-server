@@ -66,7 +66,12 @@ Plans:
   2. A handler that returns an error causes the server to respond 500 Internal Server Error without crashing
   3. Multiple handlers can be registered and the router dispatches to the first match in registration order
   4. The Context struct holds both Request and Response as mutable pipeline state accessible to the handler
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Visibility promotion (pub Request/RequestMethod/PartialEq) + Response::add_header (ROUT-01, ROUT-02, ROUT-04)
+- [ ] 03-02-PLAN.md — Handler trait, Context struct, Router with NotFoundHandler fallback (ROUT-01, ROUT-02, ROUT-03, ROUT-04, HTTP-07)
+- [ ] 03-03-PLAN.md — RootHandler, handle_connection refactor, Server::with_router, main.rs wiring (ROUT-01, ROUT-02, ROUT-03, ROUT-04, HTTP-07, HTTP-08)
 
 ### Phase 4: URL Path Safety
 **Goal**: The server decodes percent-encoded paths before routing and rejects all requests whose paths escape the configured root
@@ -99,6 +104,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation Fixes | 2/2 | Complete   | 2026-03-01 |
 | 2. Response and HTTP Compliance | 3/3 | Complete   | 2026-03-02 |
-| 3. Handler, Context, and Router | 0/TBD | Not started | - |
+| 3. Handler, Context, and Router | 0/3 | Not started | - |
 | 4. URL Path Safety | 0/TBD | Not started | - |
 | 5. Static File Serving | 0/TBD | Not started | - |
