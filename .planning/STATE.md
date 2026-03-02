@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T21:03:27Z"
+last_updated: "2026-03-02T21:20:49Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 5 of 5 (Static File Serving) — IN PROGRESS
-Plan: 1 of 3 in current phase (05-01 complete)
-Status: Phase 05-01 complete — Router fallback slot operational; set_fallback() builder ready for StaticFileHandler wiring; 61 tests green
-Last activity: 2026-03-02 — Plan 05-01 complete: Router::fallback field, set_fallback() builder, updated dispatch(); FILE-05 and PATH-03 satisfied
+Plan: 2 of 3 in current phase (05-02 complete)
+Status: Phase 05-02 complete — StaticFileHandler implemented; mime_type(), not_found(), PATH-03 guard, HEAD branch; 83 tests green
+Last activity: 2026-03-02 — Plan 05-02 complete: StaticFileHandler struct + Handler impl + 27 new tests; all FILE-* and PATH-03 requirements satisfied
 
-Progress: [█████████░] 93%
+Progress: [█████████░] 96%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████████░] 93%
 | Phase 03-handler-context-and-router P03 | 4 | 2 tasks | 6 files |
 | Phase 04-url-path-safety P01 | 5 | 2 tasks | 2 files |
 | Phase 05-static-file-serving P01 | 2 | 1 tasks | 1 files |
+| Phase 05-static-file-serving P02 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [Phase 05-01]: set_fallback() uses value-chaining (mut self -> Self) — matches Server::with_router() builder pattern from Phase 3
 - [Phase 05-01]: #[allow(dead_code)] on set_fallback — forward-looking public API, used in Phase 5 main.rs StaticFileHandler registration; same pattern as Phase 03-02
 - [Phase 05-01]: TDD RED commit blocked by pre-commit hook (cargo clippy -D warnings requires compilation) — combined tests and implementation into single feat commit; tests written before implementation
+- [Phase 05-02]: decoded_path() Box<dyn Error> mapped to 404 at StaticFileHandler handler boundary — server::Error has no From<Box<dyn Error>> impl; invalid %-sequence is malformed request (not server error)
+- [Phase 05-02]: Symlink test uses remove_file before creating symlink to ensure idempotent test runs across multiple cargo test invocations
+- [Phase 05-02]: Forward-looking #[allow(dead_code)] on mime_type, not_found, StaticFileHandler, new() — all consumed in Plan 05-03 when main.rs is wired
 
 ### Pending Todos
 
@@ -104,11 +108,11 @@ None.
 
 ### Blockers/Concerns
 
-- Phase 5 (StaticFileHandler): Path traversal requires three simultaneous defenses (component rejection, leading-slash strip, canonicalize+prefix check). All three must be present together — treat as a single atomic implementation, not incremental hardening.
+- Phase 5 Plan 03 (main.rs wiring): Path traversal three-layer defense now fully implemented; Plan 03 is purely integration — wire StaticFileHandler into main.rs with --root CLI argument.
 - Signal handling (SIGTERM) deferred to v2 — not achievable from safe std alone; SIGINT via Ctrl+C causes TcpListener accept loop to error, which is a known acceptable limitation.
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 05-static-file-serving/05-01-PLAN.md — Router fallback slot, set_fallback() builder, updated dispatch(); 61 tests green; Phase 05 Plan 1 of 3 complete
+Stopped at: Completed 05-static-file-serving/05-02-PLAN.md — StaticFileHandler + mime_type + not_found + PATH-03 guard + 27 new tests; 83 tests green; Phase 05 Plan 2 of 3 complete
 Resume file: None
