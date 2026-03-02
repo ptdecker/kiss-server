@@ -13,14 +13,14 @@
 - [x] **HTTP-04**: Server includes `Connection: close` header on all responses
 - [x] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
 - [x] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
-- [ ] **HTTP-07**: Server responds 404 Not Found when no route matches
+- [x] **HTTP-07**: Server responds 404 Not Found when no route matches
 - [ ] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
 
 ### Routing
 
 - [x] **ROUT-01**: Router dispatches requests to handlers registered in registration order
 - [x] **ROUT-02**: `Handler` trait takes `&mut Context` and mutates the response in place (no return value reconstruction), enabling zero-copy middleware composition
-- [ ] **ROUT-03**: Unmatched routes fall through to a `NotFoundHandler` fallback
+- [x] **ROUT-03**: Unmatched routes fall through to a `NotFoundHandler` fallback
 - [x] **ROUT-04**: `Context` struct holds `Request` and `Response` as mutable shared pipeline state passed through the entire handler and future middleware chain
 
 ### URL and Path Safety
@@ -96,11 +96,11 @@
 | HTTP-04 | Phase 2 | Complete |
 | HTTP-05 | Phase 2 | Complete |
 | HTTP-06 | Phase 2 | Complete |
-| HTTP-07 | Phase 3 | Pending |
+| HTTP-07 | Phase 3 | Complete |
 | HTTP-08 | Phase 3 | Pending |
 | ROUT-01 | Phase 3 | Complete |
 | ROUT-02 | Phase 3 | Complete |
-| ROUT-03 | Phase 3 | Pending |
+| ROUT-03 | Phase 3 | Complete |
 | ROUT-04 | Phase 3 | Complete |
 | PATH-01 | Phase 4 | Pending |
 | PATH-02 | Phase 4 | Pending |
