@@ -38,15 +38,23 @@ impl Router {
 
     /// Dispatch the request in `ctx` to the first matching handler.
     ///
-    /// Path comparison uses `ctx.request.target.to_string()` — Url's Display impl returns
-    /// the raw path string (e.g. "/"). There is no `.path()` method on Url.
+    /// The path is percent-decoded before routing. Invalid %-sequences and paths
+    /// containing `..` components are rejected with 404 before any handler runs.
     ///
     /// If no route matches, the built-in NotFoundHandler writes a 404 response.
+    /// Returns `Ok(())` for all cases including rejection — never returns `Err` for
+    /// path rejection (callers map `Err` to 500).
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
+        let decoded = match ctx.request.target.decoded_path() {
+            Ok(d) => d,
+            Err(_) => return NotFoundHandler.handle(ctx),
+        };
+        if decoded.split('/').any(|c| c == "..") {
+            return NotFoundHandler.handle(ctx);
+        }
         let method = &ctx.request.method;
-        let path = ctx.request.target.to_string();
         for (route_method, route_path, handler) in &self.routes {
-            if route_method == method && route_path.as_str() == path.as_str() {
+            if route_method == method && route_path.as_str() == decoded.as_str() {
                 return handler.handle(ctx);
             }
         }
@@ -149,6 +157,78 @@ mod tests {
             output.starts_with("HTTP/1.1 404"),
             "expected 404, got: {:?}",
             output
+        );
+    }
+
+    #[test]
+    fn dispatch_percent_encoded_path_matches_decoded_route() {
+        let mut router = Router::new();
+        router.add("GET", "/my file.html", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/my%20file.html");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200 OK"),
+            "expected 200 OK for percent-encoded path, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_dotdot_returns_404() {
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/../etc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "expected 404 for dotdot path, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_encoded_dotdot_returns_404() {
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/%2E%2E/etc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "expected 404 for encoded dotdot path, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_invalid_percent_returns_404() {
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/%GG");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "expected 404 for invalid percent sequence, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_dotdot_returns_ok_not_err() {
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/../etc");
+        // dispatch() must return Ok(()) for path rejection, not Err — callers map Err to 500
+        assert!(
+            router.dispatch(&mut ctx).is_ok(),
+            "dispatch should return Ok(()) for dotdot path, not Err"
         );
     }
 

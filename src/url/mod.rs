@@ -23,9 +23,6 @@ impl From<&str> for Url {
     }
 }
 
-// New methods are consumed by Router::dispatch() in Task 2 (src/server/router.rs).
-// The dead_code allow is removed once router wiring is in place.
-#[allow(dead_code)]
 impl Url {
     /// Returns the path component of the URL, stripping any query string.
     ///
@@ -42,6 +39,8 @@ impl Url {
     ///
     /// Returns `None` if no '?' is present.
     /// Returns `Some("")` if the URL ends with '?' (empty query string).
+    // Forward-looking public API; consumed by StaticFileHandler in Phase 5.
+    #[allow(dead_code)]
     pub fn query(&self) -> Option<&str> {
         self.raw_path.find('?').map(|idx| &self.raw_path[idx + 1..])
     }
@@ -77,6 +76,8 @@ impl Url {
     /// Returns `true` if the decoded path contains no `..` components.
     ///
     /// Returns `false` if decoding fails (invalid %-sequence) or if any path component is `..`.
+    // Forward-looking public API; usable standalone in tests and Phase 5.
+    #[allow(dead_code)]
     pub fn is_safe(&self) -> bool {
         match self.decoded_path() {
             Ok(decoded) => !decoded.split('/').any(|component| component == ".."),
@@ -87,8 +88,6 @@ impl Url {
 
 // Helper function that converts a character to a byte assuming that it is a hexadecimal character.
 // An error is returned if the character is not '0-9a-fA-F'
-// Used by decoded_path(); #[allow] removed once router consumes decoded_path.
-#[allow(dead_code)]
 fn hex_char_to_byte(c: char) -> Result<u8> {
     match c {
         '0'..='9' => Ok(c as u8 - b'0'),
