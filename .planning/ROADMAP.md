@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation Fixes** - Eliminate crashes, unsafe code, and silent DoS vectors before any new code is added
 - [x] **Phase 2: Response and HTTP Compliance** - Build the Response struct with mandatory HTTP/1.1 headers; all responses use CRLF and correct byte serialization (completed 2026-03-02)
 - [x] **Phase 3: Handler, Context, and Router** - Define the Context/Handler/Router abstractions and wire them into the server; 404 and 500 responses dispatched through the pipeline (completed 2026-03-02)
-- [ ] **Phase 4: URL Path Safety** - Add path() and decoded_path() to Url; enforce dot-dot rejection and canonicalize-based traversal prevention
+- [x] **Phase 4: URL Path Safety** - Add path() and decoded_path() to Url; enforce dot-dot rejection and canonicalize-based traversal prevention (completed 2026-03-02)
 - [ ] **Phase 5: Static File Serving** - Implement StaticFileHandler with MIME detection, binary-safe reads, configurable root, and HEAD support
 
 ## Phase Details
@@ -108,5 +108,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation Fixes | 2/2 | Complete   | 2026-03-01 |
 | 2. Response and HTTP Compliance | 3/3 | Complete   | 2026-03-02 |
 | 3. Handler, Context, and Router | 3/3 | Complete   | 2026-03-02 |
-| 4. URL Path Safety | 0/1 | Not started | - |
+| 4. URL Path Safety | 1/1 | Complete   | 2026-03-02 |
 | 5. Static File Serving | 0/TBD | Not started | - |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T16:47:12.818Z"
+last_updated: "2026-03-02T20:33:46.174Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 3 - Handler Context and Router
+**Current focus:** Phase 4 - URL Path Safety
 
 ## Current Position
 
-Phase: 3 of 5 (Handler Context and Router) — COMPLETE
-Plan: 3 of 3 in current phase (03-03 complete)
-Status: Phase 03 complete — full dispatch pipeline operational; ready for Phase 04 (StaticFileHandler)
-Last activity: 2026-03-02 — Plan 03-03 complete: RootHandler, Server::with_router, Arc<Router> dispatch, Date injection, 500 error path, all tests green
+Phase: 4 of 5 (URL Path Safety) — COMPLETE
+Plan: 1 of 1 in current phase (04-01 complete)
+Status: Phase 04 complete — URL path safety guard operational; percent-decoded routing and dotdot rejection in place; ready for Phase 05 (StaticFileHandler)
+Last activity: 2026-03-02 — Plan 04-01 complete: Url::path/query/decoded_path/is_safe, Router::dispatch safety guard, PATH-01 and PATH-02 satisfied, 54 tests green
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Progress: [████████░░] 80%
 | 01-foundation-fixes | 2/2 | ~9min | ~5min |
 | 02-response-and-http-compliance | 3/3 | ~18min | ~6min |
 | 03-handler-context-and-router | 3/3 | ~7min | ~2min |
+| 04-url-path-safety | 1/1 | ~5min | ~5min |
 
 **Recent Trend:**
 - Last 5 plans: 01-01 (~5min), 01-02 (~4min), 02-02 (~8min), 02-03 (~2min)
@@ -53,6 +54,7 @@ Progress: [████████░░] 80%
 | Phase 03-handler-context-and-router P01 | 1 | 1 tasks | 2 files |
 | Phase 03-handler-context-and-router P02 | 2 | 2 tasks | 4 files |
 | Phase 03-handler-context-and-router P03 | 4 | 2 tasks | 6 files |
+| Phase 04-url-path-safety P01 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 03-03]: Date header injected by handle_connection after dispatch, not inside handlers — cross-cutting concern owned by server layer
 - [Phase 03-03]: Router implements Debug manually using routes_count — Box<dyn Handler> cannot derive Debug; manual impl satisfies Server: Debug derive
 - [Phase 03-03]: pub use request::RequestMethod gets #[allow(unused_imports)] — public API export used in tests; pre-commit hook runs clippy -D warnings
+- [Phase 04-url-path-safety]: decoded_path() uses byte-buffer approach with hex_char_to_byte() directly — avoids pct_decode() multi-byte-per-call complexity for sequential path byte processing
+- [Phase 04-url-path-safety]: dispatch() returns Ok(()) for all path rejection cases (never Err) — callers map Err to 500; path rejection is 404 not server error
+- [Phase 04-url-path-safety]: PATH-03 (canonicalize + starts_with root) deferred to Phase 5 StaticFileHandler — requires configured server root path not present in Phase 4
 
 ### Pending Todos
 
@@ -101,5 +106,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-handler-context-and-router/03-03-PLAN.md — RootHandler, Server::with_router, Arc<Router> dispatch pipeline, Date injection, 500 error path; Phase 3 complete; ready for Phase 04
+Stopped at: Completed 04-url-path-safety/04-01-PLAN.md — Url::path/query/decoded_path/is_safe, Router::dispatch safety guard for percent-decoded routing and dotdot rejection; Phase 4 complete; ready for Phase 05
 Resume file: None

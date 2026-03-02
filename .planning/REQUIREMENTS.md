@@ -25,8 +25,8 @@
 
 ### URL and Path Safety
 
-- [ ] **PATH-01**: Server percent-decodes request paths before routing and file resolution
-- [ ] **PATH-02**: Server rejects paths with `..` components, returning 404
+- [x] **PATH-01**: Server percent-decodes request paths before routing and file resolution
+- [x] **PATH-02**: Server rejects paths with `..` components, returning 404
 - [ ] **PATH-03**: Server uses `canonicalize()` + `starts_with(root)` check to prevent path traversal, returning 404
 
 ### Static File Serving
@@ -102,8 +102,8 @@
 | ROUT-02 | Phase 3 | Complete |
 | ROUT-03 | Phase 3 | Complete |
 | ROUT-04 | Phase 3 | Complete |
-| PATH-01 | Phase 4 | Pending |
-| PATH-02 | Phase 4 | Pending |
+| PATH-01 | Phase 4 | Complete |
+| PATH-02 | Phase 4 | Complete |
 | PATH-03 | Phase 4 | Pending |
 | FILE-01 | Phase 5 | Pending |
 | FILE-02 | Phase 5 | Pending |
