@@ -50,7 +50,12 @@ Plans:
   3. The Date header value is formatted as IMF-fixdate (e.g., "Sat, 28 Feb 2026 00:00:00 GMT")
   4. Sending a malformed HTTP request returns a 400 Bad Request response, not a crash or hang
   5. Content-Length matches the actual byte length of the response body for binary content
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — DateTime::to_imf_fixdate() for HTTP Date header (TIME-03)
+- [ ] 02-02-PLAN.md — Response struct: value-chaining builder + write_to (HTTP-01, HTTP-02, HTTP-04, HTTP-05)
+- [ ] 02-03-PLAN.md — handle_connection refactor: wire Response + 400/431 error responses (SAFE-01, HTTP-01, HTTP-02, HTTP-03, HTTP-06)
 
 ### Phase 3: Handler, Context, and Router
 **Goal**: The server dispatches requests through a Router to typed Handlers via a shared Context struct; unmatched routes return 404 and handler errors return 500
@@ -93,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Fixes | 2/2 | Complete   | 2026-03-01 |
-| 2. Response and HTTP Compliance | 0/TBD | Not started | - |
+| 2. Response and HTTP Compliance | 0/3 | Not started | - |
 | 3. Handler, Context, and Router | 0/TBD | Not started | - |
 | 4. URL Path Safety | 0/TBD | Not started | - |
 | 5. Static File Serving | 0/TBD | Not started | - |
