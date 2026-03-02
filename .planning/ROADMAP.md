@@ -76,7 +76,7 @@ Plans:
 ### Phase 4: URL Path Safety
 **Goal**: The server decodes percent-encoded paths before routing and rejects all requests whose paths escape the configured root
 **Depends on**: Phase 3
-**Requirements**: PATH-01, PATH-02, PATH-03
+**Requirements**: PATH-01, PATH-02
 **Success Criteria** (what must be TRUE):
   1. A request for a percent-encoded path (e.g., /my%20file.html) resolves to the correct decoded filename
   2. A request containing a literal ".." path component returns 404, not a file from outside the root
@@ -84,12 +84,12 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md — Url methods (path, query, decoded_path, is_safe) + Router safety guard (PATH-01, PATH-02, PATH-03)
+- [ ] 04-01-PLAN.md — Url methods (path, query, decoded_path, is_safe) + Router safety guard (PATH-01, PATH-02)
 
 ### Phase 5: Static File Serving
 **Goal**: The server correctly serves any file under a configurable root directory — binary-safe, with accurate MIME types, configurable via CLI argument, and responding correctly to HEAD requests
 **Depends on**: Phase 4
-**Requirements**: FILE-01, FILE-02, FILE-03, FILE-04, FILE-05
+**Requirements**: FILE-01, FILE-02, FILE-03, FILE-04, FILE-05, PATH-03
 **Success Criteria** (what must be TRUE):
   1. Requesting an HTML, CSS, JS, WASM, or image file returns the correct Content-Type header for that file type
   2. A binary file (WASM, PNG) is served with identical bytes to what is on disk, with no corruption
