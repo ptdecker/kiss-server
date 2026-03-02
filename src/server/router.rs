@@ -1,9 +1,5 @@
 //! Request router: dispatches requests to registered handlers in registration order.
 
-// These items are unused in the binary while handle_connection is still hard-coded.
-// They are consumed in Plan 03-03 when handle_connection is wired to Router::dispatch.
-#![allow(dead_code)]
-
 use super::{
     context::Context, handler::Handler, request::RequestMethod, response::Response, Result,
 };
@@ -13,6 +9,14 @@ use super::{
 /// Unmatched requests are handled by the built-in `NotFoundHandler` fallback (404).
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
+}
+
+impl std::fmt::Debug for Router {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router")
+            .field("routes_count", &self.routes.len())
+            .finish()
+    }
 }
 
 impl Router {

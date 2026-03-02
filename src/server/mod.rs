@@ -12,16 +12,14 @@ use std::{
     thread,
 };
 
-#[allow(unused_imports)]
 pub use context::Context;
 pub use error::{Error, Result};
-#[allow(unused_imports)]
 pub use handler::Handler;
 use pool::ThreadPool;
+pub use request::Request;
 #[allow(unused_imports)]
-pub use request::{Request, RequestMethod};
+pub use request::RequestMethod;
 pub use response::Response;
-#[allow(unused_imports)]
 pub use router::Router;
 
 use super::*;
@@ -57,6 +55,8 @@ pub struct Server {
     listener: TcpListener,
     /// The thread pool, which manages our worker threads.
     pool: ThreadPool,
+    /// The router, which dispatches requests to handlers.
+    router: Arc<Router>,
 }
 
 impl Server {
@@ -66,16 +66,24 @@ impl Server {
             addr: addr.clone(),
             listener: TcpListener::bind(&addr)?,
             pool: ThreadPool::build(DEFAULT_POOL_SIZE)?,
+            router: Arc::new(Router::new()),
         })
+    }
+
+    /// Set the router for this server (builder pattern).
+    /// If not called, all requests receive 404 Not Found.
+    pub fn with_router(mut self, router: Router) -> Self {
+        self.router = Arc::new(router);
+        self
     }
 
     pub fn run(&self) -> Result<()> {
         info!("Listening for connections on {}", &self.addr);
         for stream_result in self.listener.incoming() {
-            self.pool.execute(|| match stream_result {
-                Ok(stream) => {
-                    handle_connection(stream).unwrap_or_else(|e| warn!("handle_connection: {}", e))
-                }
+            let router = Arc::clone(&self.router); // clone BEFORE move closure
+            self.pool.execute(move || match stream_result {
+                Ok(stream) => handle_connection(stream, router)
+                    .unwrap_or_else(|e| warn!("handle_connection: {}", e)),
                 Err(e) => {
                     warn!("thread: {}", e);
                 }
@@ -107,7 +115,7 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
     let _ = response.write_to(stream);
 }
 
-fn handle_connection(mut stream: TcpStream) -> Result<()> {
+fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     info!("handling a connection");
 
     // Collect header lines inside a block so BufReader drops before we write the response.
@@ -179,19 +187,28 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     info!("Target: {}", request.target);
     debug!("Request ({:?}): {:#?}", stream.peer_addr()?, http_request);
 
-    // Build the 200 OK response with mandatory headers.
-    let body = b"OK".to_vec();
-    let content_length = body.len().to_string();
-    let date = DateTime::now()
-        .map(|dt| dt.to_imf_fixdate())
-        .unwrap_or_default();
-    let response = Response::new(200, "OK")
-        .header("Content-Type", "text/plain")
-        .header("Content-Length", &content_length)
-        .header("Date", &date)
-        .header("Connection", "close")
-        .body(body);
-    response.write_to(&mut stream)?;
+    let mut ctx = Context {
+        request,
+        response: Response::new(200, "OK"),
+    };
+
+    if let Err(e) = router.dispatch(&mut ctx) {
+        warn!("handler error: {}", e);
+        send_error_response(
+            &mut stream,
+            500,
+            "Internal Server Error",
+            "Internal Server Error",
+        );
+        return Err(e);
+    }
+
+    // Inject Date header after dispatch (HTTP-03: every response must have Date)
+    if let Ok(dt) = DateTime::now() {
+        ctx.response.add_header("Date", &dt.to_imf_fixdate());
+    }
+
+    ctx.response.write_to(&mut stream)?;
     Ok(())
 }
 
@@ -202,7 +219,7 @@ mod tests {
     use std::net::{TcpListener, TcpStream};
     use std::thread;
 
-    fn spawn_handle_connection_test(send_bytes: &'static [u8]) -> Result<()> {
+    fn spawn_handle_connection_test(send_bytes: &'static [u8], router: Arc<Router>) -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
@@ -213,7 +230,7 @@ mod tests {
             let _ = client.read_to_end(&mut buf);
         });
         let (stream, _) = listener.accept().unwrap();
-        let result = handle_connection(stream);
+        let result = handle_connection(stream, router);
         client_thread.join().unwrap();
         result
     }
@@ -221,14 +238,24 @@ mod tests {
     #[test]
     fn invalid_utf8_returns_err_not_panic() {
         // Send raw binary bytes — invalid UTF-8
-        let result = spawn_handle_connection_test(b"\xFF\xFE binary garbage\r\n\r\n");
+        let result = spawn_handle_connection_test(
+            b"\xFF\xFE binary garbage\r\n\r\n",
+            Arc::new(Router::new()),
+        );
         // Must return Err, not panic
         assert!(result.is_err());
     }
 
     #[test]
     fn get_root_returns_200() {
-        let result = spawn_handle_connection_test(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        let result = spawn_handle_connection_test(
+            b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+            Arc::new(router),
+        );
         assert!(result.is_ok());
     }
 
@@ -247,7 +274,11 @@ mod tests {
             response
         });
         let (stream, _) = listener.accept().unwrap();
-        handle_connection(stream).unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        handle_connection(stream, Arc::new(router)).unwrap();
         let response = client_thread.join().unwrap();
         assert!(response.contains("HTTP/1.1 200 OK"), "missing status line");
         assert!(response.contains("Content-Type:"), "missing Content-Type");
@@ -258,5 +289,29 @@ mod tests {
         assert!(response.contains("Date:"), "missing Date");
         assert!(response.contains("Connection: close"), "missing Connection");
         assert!(response.contains("\r\n\r\n"), "missing blank separator");
+    }
+
+    #[test]
+    fn unregistered_path_returns_404() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET /missing HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        // Empty router — no routes registered
+        handle_connection(stream, Arc::new(Router::new())).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 404"),
+            "expected 404, got: {:?}",
+            response
+        );
     }
 }

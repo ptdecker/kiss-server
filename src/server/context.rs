@@ -6,7 +6,6 @@ use super::{request::Request, response::Response};
 ///
 /// Constructed per-request in handle_connection. The default response is 200 OK.
 /// Handlers overwrite `ctx.response` in place via the Response builder.
-#[allow(dead_code)]
 pub struct Context {
     pub request: Request,
     pub response: Response,

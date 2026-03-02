@@ -6,8 +6,6 @@
 use crate::server::{Context, Handler, Response, Result};
 
 /// Handler for `GET /` — returns 200 OK with a plain text body.
-// Used in main.rs after Router wiring in Task 2 — suppress until then.
-#[allow(dead_code)]
 pub struct RootHandler;
 
 impl Handler for RootHandler {
