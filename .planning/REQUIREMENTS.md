@@ -9,10 +9,10 @@
 
 - [x] **HTTP-01**: Server includes `Content-Type` header on all responses
 - [x] **HTTP-02**: Server includes `Content-Length` header (byte length) on all responses
-- [ ] **HTTP-03**: Server includes `Date` header in IMF-fixdate format on all responses
+- [x] **HTTP-03**: Server includes `Date` header in IMF-fixdate format on all responses
 - [x] **HTTP-04**: Server includes `Connection: close` header on all responses
 - [x] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
-- [ ] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
+- [x] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
 - [ ] **HTTP-07**: Server responds 404 Not Found when no route matches
 - [ ] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
 
@@ -39,7 +39,7 @@
 
 ### Reliability and Safety
 
-- [ ] **SAFE-01**: Server returns 400 response (not panic) on malformed or non-UTF-8 request input
+- [x] **SAFE-01**: Server returns 400 response (not panic) on malformed or non-UTF-8 request input
 - [x] **SAFE-02**: `DateTime::now()` uses safe error propagation — remove `unsafe { unwrap_unchecked() }`
 - [x] **SAFE-03**: Worker threads handle poisoned mutex without panicking
 - [x] **SAFE-04**: `ThreadPool::drop()` never panics — use `let _ = thread.join()`
@@ -92,10 +92,10 @@
 |-------------|-------|--------|
 | HTTP-01 | Phase 2 | Complete |
 | HTTP-02 | Phase 2 | Complete |
-| HTTP-03 | Phase 2 | Pending |
+| HTTP-03 | Phase 2 | Complete |
 | HTTP-04 | Phase 2 | Complete |
 | HTTP-05 | Phase 2 | Complete |
-| HTTP-06 | Phase 2 | Pending |
+| HTTP-06 | Phase 2 | Complete |
 | HTTP-07 | Phase 3 | Pending |
 | HTTP-08 | Phase 3 | Pending |
 | ROUT-01 | Phase 3 | Pending |
@@ -110,7 +110,7 @@
 | FILE-03 | Phase 5 | Pending |
 | FILE-04 | Phase 5 | Pending |
 | FILE-05 | Phase 5 | Pending |
-| SAFE-01 | Phase 2 | Pending |
+| SAFE-01 | Phase 2 | Complete |
 | SAFE-02 | Phase 1 | Complete |
 | SAFE-03 | Phase 1 | Complete |
 | SAFE-04 | Phase 1 | Complete |
