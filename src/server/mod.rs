@@ -14,9 +14,12 @@ use std::{
 
 pub use error::{Error, Result};
 use pool::ThreadPool;
-use request::{Request, RequestMethod};
+use request::Request;
+use response::Response;
 
 use super::*;
+
+use crate::time::DateTime;
 
 mod error;
 mod pool;
@@ -73,12 +76,39 @@ impl Server {
     }
 }
 
+/// Send a minimal error response to the client and discard any write failure.
+///
+/// This is called on error paths where the BufReader has already been dropped
+/// and the stream is available for writing again.
+fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str, message: &str) {
+    let body = message.as_bytes().to_vec();
+    let content_length = body.len().to_string();
+    let mut response = Response::new(status, reason)
+        .header("Content-Type", "text/plain")
+        .header("Content-Length", &content_length)
+        .header("Connection", "close");
+    // Best-effort Date header — omit if clock fails rather than panic
+    if let Ok(dt) = DateTime::now() {
+        let date = dt.to_imf_fixdate();
+        response = response.header("Date", &date);
+    }
+    let response = response.body(body);
+    // Best-effort write: if write fails, there is nothing more to do (primary error captured)
+    let _ = response.write_to(stream);
+}
+
 fn handle_connection(mut stream: TcpStream) -> Result<()> {
     info!("handling a connection");
-    let http_request: Vec<String> = {
-        let mut lines = Vec::new();
+
+    // Collect header lines inside a block so BufReader drops before we write the response.
+    // BufReader borrows &mut stream; it must be dropped before send_error_response can write.
+    // We collect any I/O error as an Option so we can handle it after the block ends.
+    let (http_request, too_large, io_error) = {
+        let mut lines: Vec<String> = Vec::new();
         let mut reader = BufReader::new(&mut stream);
         let mut buf = String::new();
+        let mut over_limit = false;
+        let mut read_error: Option<std::io::Error> = None;
         loop {
             buf.clear();
             match reader.read_line(&mut buf) {
@@ -90,46 +120,75 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
                     }
                     lines.push(line);
                 }
-                Err(e) => return Err(e.into()), // invalid UTF-8 or I/O error
+                Err(e) => {
+                    // Collect the error and exit the loop.
+                    // We cannot call send_error_response here — reader still borrows stream.
+                    // Handle after the block once BufReader is dropped.
+                    read_error = Some(e);
+                    break;
+                }
             }
             if lines.len() > request::MAX_HEADER_LINES {
-                return Err(Error::RequestTooLarge);
+                over_limit = true;
+                break;
             }
         }
-        lines
+        (lines, over_limit, read_error)
     };
-    if http_request.is_empty() {
-        return Ok(()); // empty request — close connection silently
+    // BufReader is now dropped; stream is available for writing.
+
+    if let Some(e) = io_error {
+        send_error_response(&mut stream, 400, "Bad Request", &e.to_string());
+        return Err(e.into());
     }
-    let request = Request::parse(&http_request)?;
+
+    if too_large {
+        send_error_response(
+            &mut stream,
+            431,
+            "Request Header Fields Too Large",
+            &Error::RequestTooLarge.to_string(),
+        );
+        return Err(Error::RequestTooLarge);
+    }
+
+    if http_request.is_empty() {
+        return Ok(()); // empty request — close connection silently (no response needed)
+    }
+
+    let request = match Request::parse(&http_request) {
+        Ok(r) => r,
+        Err(e) => {
+            send_error_response(&mut stream, 400, "Bad Request", &e.to_string());
+            return Err(e);
+        }
+    };
+
     info!("{}", http_request[0]);
     info!("Method: {}", request.method);
     info!("Target: {}", request.target);
     debug!("Request ({:?}): {:#?}", stream.peer_addr()?, http_request);
-    // TODO: Send date in response header (Cf. RFC-9110 6.6.1)
-    match (&request.method, request.target.to_string().as_str()) {
-        (RequestMethod::Get, "/") => {
-            let body = "OK";
-            stream.write_all(
-                format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                    body.len(),
-                    body
-                )
-                .as_bytes(),
-            )?;
-        }
-        _ => {
-            // Unmatched routes: close connection without response (routing is Phase 3's job)
-        }
-    }
+
+    // Build the 200 OK response with mandatory headers.
+    let body = b"OK".to_vec();
+    let content_length = body.len().to_string();
+    let date = DateTime::now()
+        .map(|dt| dt.to_imf_fixdate())
+        .unwrap_or_default();
+    let response = Response::new(200, "OK")
+        .header("Content-Type", "text/plain")
+        .header("Content-Length", &content_length)
+        .header("Date", &date)
+        .header("Connection", "close")
+        .body(body);
+    response.write_to(&mut stream)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread;
 
@@ -157,5 +216,33 @@ mod tests {
     fn get_root_returns_200() {
         let result = spawn_handle_connection_test(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn get_root_response_has_required_headers() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        // Spawn a thread that acts as the client: sends a valid request and reads the response
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        handle_connection(stream).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(response.contains("HTTP/1.1 200 OK"), "missing status line");
+        assert!(response.contains("Content-Type:"), "missing Content-Type");
+        assert!(
+            response.contains("Content-Length:"),
+            "missing Content-Length"
+        );
+        assert!(response.contains("Date:"), "missing Date");
+        assert!(response.contains("Connection: close"), "missing Connection");
+        assert!(response.contains("\r\n\r\n"), "missing blank separator");
     }
 }
