@@ -81,7 +81,10 @@ Plans:
   1. A request for a percent-encoded path (e.g., /my%20file.html) resolves to the correct decoded filename
   2. A request containing a literal ".." path component returns 404, not a file from outside the root
   3. A path that after canonicalization resolves outside the server root returns 404
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Url methods (path, query, decoded_path, is_safe) + Router safety guard (PATH-01, PATH-02, PATH-03)
 
 ### Phase 5: Static File Serving
 **Goal**: The server correctly serves any file under a configurable root directory — binary-safe, with accurate MIME types, configurable via CLI argument, and responding correctly to HEAD requests
@@ -105,5 +108,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation Fixes | 2/2 | Complete   | 2026-03-01 |
 | 2. Response and HTTP Compliance | 3/3 | Complete   | 2026-03-02 |
 | 3. Handler, Context, and Router | 3/3 | Complete   | 2026-03-02 |
-| 4. URL Path Safety | 0/TBD | Not started | - |
+| 4. URL Path Safety | 0/1 | Not started | - |
 | 5. Static File Serving | 0/TBD | Not started | - |
