@@ -5,6 +5,7 @@ use log::{debug, info, warn};
 use logger::SimpleLogger;
 use server::Server;
 
+mod handlers;
 mod logger;
 mod server;
 mod time;
