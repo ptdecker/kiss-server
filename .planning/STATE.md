@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T15:49:56.647Z"
+last_updated: "2026-03-02T16:31:42.600Z"
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 2 - Response and HTTP Compliance
+**Current focus:** Phase 3 - Handler Context and Router
 
 ## Current Position
 
-Phase: 2 of 5 (Response and HTTP Compliance) — COMPLETE
-Plan: 3 of 3 in current phase (02-01 complete, 02-02 complete, 02-03 complete)
-Status: Phase 2 complete — advancing to Phase 3
-Last activity: 2026-03-02 — Plan 02-03 complete: handle_connection wired with Response builder, send_error_response, and Date header
+Phase: 3 of 5 (Handler Context and Router) — IN PROGRESS
+Plan: 1 of 3 in current phase (03-01 complete)
+Status: Plan 03-01 complete — ready for Plan 03-02 (Router)
+Last activity: 2026-03-02 — Plan 03-01 complete: promoted Request/RequestMethod to pub with PartialEq and added Response::add_header
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [████░░░░░░] 40%
 
 *Updated after each plan completion*
 | Phase 02-response-and-http-compliance P03 | 2 | 1 tasks | 1 files |
+| Phase 03-handler-context-and-router P01 | 1 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - Plan 02-02: write_to consumes self — prevents double-send, Rust ownership enforces correct use at compile time
 - [Phase 02-03]: Collect BufReader I/O error as Option<io::Error> inside block rather than using explicit drop() — idiomatic Rust
 - [Phase 02-03]: send_error_response takes &mut TcpStream (not &mut impl Write) — keeps stream-specific methods available
+- [Phase 03-01]: Request::parse promoted to pub for consistency even though server/mod.rs is in same module — avoids mixed visibility
+- [Phase 03-01]: MAX_HEADER_LINES stays pub(super) — internal server boundary constant, not part of public API
+- [Phase 03-01]: add_header uses &mut self (mutating) while header() uses self (value-chaining) — builder for construction, add_header for post-dispatch injection
 
 ### Pending Todos
 
@@ -88,5 +92,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 02-response-and-http-compliance/02-03-PLAN.md — handle_connection wired with Response builder, send_error_response, and Date header; Phase 2 complete
+Stopped at: Completed 03-handler-context-and-router/03-01-PLAN.md — promoted Request/RequestMethod to pub with PartialEq and added Response::add_header; ready for Plan 03-02
 Resume file: None

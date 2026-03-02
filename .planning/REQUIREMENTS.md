@@ -18,10 +18,10 @@
 
 ### Routing
 
-- [ ] **ROUT-01**: Router dispatches requests to handlers registered in registration order
-- [ ] **ROUT-02**: `Handler` trait takes `&mut Context` and mutates the response in place (no return value reconstruction), enabling zero-copy middleware composition
+- [x] **ROUT-01**: Router dispatches requests to handlers registered in registration order
+- [x] **ROUT-02**: `Handler` trait takes `&mut Context` and mutates the response in place (no return value reconstruction), enabling zero-copy middleware composition
 - [ ] **ROUT-03**: Unmatched routes fall through to a `NotFoundHandler` fallback
-- [ ] **ROUT-04**: `Context` struct holds `Request` and `Response` as mutable shared pipeline state passed through the entire handler and future middleware chain
+- [x] **ROUT-04**: `Context` struct holds `Request` and `Response` as mutable shared pipeline state passed through the entire handler and future middleware chain
 
 ### URL and Path Safety
 
@@ -98,10 +98,10 @@
 | HTTP-06 | Phase 2 | Complete |
 | HTTP-07 | Phase 3 | Pending |
 | HTTP-08 | Phase 3 | Pending |
-| ROUT-01 | Phase 3 | Pending |
-| ROUT-02 | Phase 3 | Pending |
+| ROUT-01 | Phase 3 | Complete |
+| ROUT-02 | Phase 3 | Complete |
 | ROUT-03 | Phase 3 | Pending |
-| ROUT-04 | Phase 3 | Pending |
+| ROUT-04 | Phase 3 | Complete |
 | PATH-01 | Phase 4 | Pending |
 | PATH-02 | Phase 4 | Pending |
 | PATH-03 | Phase 4 | Pending |
