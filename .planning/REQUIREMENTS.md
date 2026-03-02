@@ -27,7 +27,7 @@
 
 - [x] **PATH-01**: Server percent-decodes request paths before routing and file resolution
 - [x] **PATH-02**: Server rejects paths with `..` components, returning 404
-- [ ] **PATH-03**: Server uses `canonicalize()` + `starts_with(root)` check to prevent path traversal, returning 404
+- [x] **PATH-03**: Server uses `canonicalize()` + `starts_with(root)` check to prevent path traversal, returning 404
 
 ### Static File Serving
 
@@ -35,7 +35,7 @@
 - [ ] **FILE-02**: Server detects MIME type from file extension and sets `Content-Type` accordingly
 - [ ] **FILE-03**: Static file root directory is configurable via CLI argument at startup
 - [ ] **FILE-04**: Server handles HEAD requests by returning headers only (no body)
-- [ ] **FILE-05**: Server returns 404 when a requested static file does not exist
+- [x] **FILE-05**: Server returns 404 when a requested static file does not exist
 
 ### Reliability and Safety
 
@@ -104,12 +104,12 @@
 | ROUT-04 | Phase 3 | Complete |
 | PATH-01 | Phase 4 | Complete |
 | PATH-02 | Phase 4 | Complete |
-| PATH-03 | Phase 4 | Pending |
+| PATH-03 | Phase 4 | Complete |
 | FILE-01 | Phase 5 | Pending |
 | FILE-02 | Phase 5 | Pending |
 | FILE-03 | Phase 5 | Pending |
 | FILE-04 | Phase 5 | Pending |
-| FILE-05 | Phase 5 | Pending |
+| FILE-05 | Phase 5 | Complete |
 | SAFE-01 | Phase 2 | Complete |
 | SAFE-02 | Phase 1 | Complete |
 | SAFE-03 | Phase 1 | Complete |
