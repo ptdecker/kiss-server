@@ -21,6 +21,7 @@ use super::*;
 mod error;
 mod pool;
 mod request;
+mod response;
 mod worker;
 
 /// Tread pool size

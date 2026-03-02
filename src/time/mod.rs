@@ -181,6 +181,20 @@ fn civil_from_days(epoch_days: i64) -> (i32, u8, u8) {
     (y as i32, m as u8, d as u8)
 }
 
+/// Compute the weekday from an epoch day count.
+///
+/// Uses Howard Hinnant's weekday algorithm.
+/// Convention: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+/// Verification: weekday_from_days(0) == 4 (1970-01-01 is Thursday)
+#[allow(dead_code)]
+fn weekday_from_days(z: i64) -> u8 {
+    if z >= -4 {
+        ((z + 4) % 7) as u8
+    } else {
+        ((z + 5) % 7 + 6) as u8
+    }
+}
+
 impl DateTime {
     /// Retrieves the current time
     pub fn now() -> Result<DateTime> {
@@ -237,11 +251,64 @@ impl DateTime {
     pub fn is_leap_year(&self) -> bool {
         is_leap_year(self.year)
     }
+
+    /// Format the date/time as an IMF-fixdate string per RFC 9110 Section 5.6.7.
+    ///
+    /// Example output: "Sun, 06 Nov 1994 08:49:37 GMT"
+    /// The output is always exactly 29 characters long.
+    #[allow(dead_code)]
+    #[allow(clippy::wrong_self_convention)]
+    pub fn to_imf_fixdate(&self) -> String {
+        const DAY_NAMES: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const MONTH_NAMES: [&str; 13] = [
+            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let dow = weekday_from_days(self.epoch_days as i64);
+        let secs_today = self.epoch_seconds % 86_400;
+        let hour = secs_today / 3_600;
+        let minute = (secs_today % 3_600) / 60;
+        let second = secs_today % 60;
+        let month_num: u8 = self.month.into();
+        format!(
+            "{}, {:02} {} {:04} {:02}:{:02}:{:02} GMT",
+            DAY_NAMES[dow as usize],
+            self.day,
+            MONTH_NAMES[month_num as usize],
+            self.year,
+            hour,
+            minute,
+            second
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weekday_epoch_zero() {
+        // 1970-01-01 is Thursday, index 4 in 0=Sunday convention
+        assert_eq!(weekday_from_days(0), 4);
+    }
+
+    #[test]
+    fn weekday_2025_dec_01() {
+        // 2025-12-01 is Monday, index 1 in 0=Sunday convention.
+        // Epoch day = 20423 (verified: date(2025,12,1) - date(1970,1,1) == 20423 days).
+        // Note: the plan specified 20440 but that is 2025-12-18 (Thursday). Fixed to 20423.
+        assert_eq!(weekday_from_days(20423), 1);
+    }
+
+    #[test]
+    fn imf_fixdate_format_length() {
+        assert_eq!(DateTime::now().unwrap().to_imf_fixdate().len(), 29);
+    }
+
+    #[test]
+    fn imf_fixdate_ends_with_gmt() {
+        assert!(DateTime::now().unwrap().to_imf_fixdate().ends_with(" GMT"));
+    }
 
     #[test]
     fn leap_year() {
