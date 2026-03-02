@@ -7,11 +7,11 @@
 
 ### Core HTTP
 
-- [ ] **HTTP-01**: Server includes `Content-Type` header on all responses
-- [ ] **HTTP-02**: Server includes `Content-Length` header (byte length) on all responses
+- [x] **HTTP-01**: Server includes `Content-Type` header on all responses
+- [x] **HTTP-02**: Server includes `Content-Length` header (byte length) on all responses
 - [ ] **HTTP-03**: Server includes `Date` header in IMF-fixdate format on all responses
-- [ ] **HTTP-04**: Server includes `Connection: close` header on all responses
-- [ ] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
+- [x] **HTTP-04**: Server includes `Connection: close` header on all responses
+- [x] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
 - [ ] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
 - [ ] **HTTP-07**: Server responds 404 Not Found when no route matches
 - [ ] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
@@ -90,11 +90,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HTTP-01 | Phase 2 | Pending |
-| HTTP-02 | Phase 2 | Pending |
+| HTTP-01 | Phase 2 | Complete |
+| HTTP-02 | Phase 2 | Complete |
 | HTTP-03 | Phase 2 | Pending |
-| HTTP-04 | Phase 2 | Pending |
-| HTTP-05 | Phase 2 | Pending |
+| HTTP-04 | Phase 2 | Complete |
+| HTTP-05 | Phase 2 | Complete |
 | HTTP-06 | Phase 2 | Pending |
 | HTTP-07 | Phase 3 | Pending |
 | HTTP-08 | Phase 3 | Pending |

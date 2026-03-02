@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-01T23:52:57.753Z"
+status: in-progress
+last_updated: "2026-03-02T00:25:00Z"
 progress:
-  total_phases: 1
+  total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 10
+  completed_plans: 3
 ---
 
 # Project State
@@ -18,32 +18,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 1 - Foundation Fixes
+**Current focus:** Phase 2 - Response and HTTP Compliance
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation Fixes)
-Plan: 2 of 2 in current phase (01-01 complete, 01-02 complete)
-Status: Phase complete
-Last activity: 2026-03-01 — Plan 01-02 complete: server crash vectors eliminated (SAFE-03 through SAFE-06)
+Phase: 2 of 5 (Response and HTTP Compliance)
+Plan: 1 of N in current phase (02-02 complete)
+Status: Phase 2 in progress
+Last activity: 2026-03-02 — Plan 02-02 complete: Response struct with RFC 9112-compliant write_to serializer
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██░░░░░░░░] 22%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: ~5 min
-- Total execution time: 0.2 hours
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-fixes | 2/2 | ~9min | ~5min |
+| 02-response-and-http-compliance | 1/N | ~8min | ~8min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (~5min), 01-02 (~4min)
+- Last 5 plans: 01-01 (~5min), 01-02 (~4min), 02-02 (~8min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - Plan 01-02: Use read_line loop (not .lines() iterator) for bounded header collection; .lines() cannot bound and panics on invalid UTF-8
 - Plan 01-02: Unmatched routes close connection silently (no 404) — routing is Phase 3 responsibility
 - Plan 01-02: MAX_HEADER_LINES enforced in both collection loop and parse() as defense-in-depth
+- Plan 02-02: Response::write_to returns std::io::Result<()> directly — avoids super::* import, simpler for callers
+- Plan 02-02: Vec<(String, String)> for headers (not HashMap) — preserves insertion order, avoids hashing overhead for <15 headers
+- Plan 02-02: write_to consumes self — prevents double-send, Rust ownership enforces correct use at compile time
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Completed 01-foundation-fixes/01-02-PLAN.md — all crash vectors eliminated; Phase 1 complete
+Last session: 2026-03-02
+Stopped at: Completed 02-response-and-http-compliance/02-02-PLAN.md — Response struct with RFC-compliant serializer; ready for Plan 02-03 wiring
 Resume file: None
