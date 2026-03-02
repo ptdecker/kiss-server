@@ -11,8 +11,8 @@ pub(super) const MAX_HEADER_LINES: usize = 100;
 /// Request Methods (RFC-9110 7.1)
 ///
 /// Cf. <https://datatracker.ietf.org/doc/html/rfc9110#name-overview>
-#[derive(Debug, Copy, Clone)]
-pub(super) enum RequestMethod {
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum RequestMethod {
     Get,
     Head,
     Post,
@@ -57,17 +57,17 @@ impl TryFrom<&str> for RequestMethod {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct Request {
+pub struct Request {
     // Control Data (RFC-9110 6.2)
     //
     // The request method (RFC-9110 9)
-    pub(super) method: RequestMethod,
+    pub method: RequestMethod,
     // The request target (RFC-9110 7.1)
-    pub(super) target: Url,
+    pub target: Url,
 }
 
 impl Request {
-    pub(super) fn parse(raw_request: &[String]) -> Result<Request> {
+    pub fn parse(raw_request: &[String]) -> Result<Request> {
         if raw_request.len() > MAX_HEADER_LINES {
             return Err(Error::RequestTooLarge);
         }

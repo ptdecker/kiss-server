@@ -37,6 +37,14 @@ impl Response {
         self
     }
 
+    /// Add a header to the response in place (mutating).
+    ///
+    /// Use this after dispatch when the response has already been built by a handler
+    /// and a cross-cutting header (e.g., Date) must be injected before writing.
+    pub fn add_header(&mut self, name: &str, value: &str) {
+        self.headers.push((name.to_string(), value.to_string()));
+    }
+
     /// Serialize and write the response to the given writer.
     ///
     /// Format: "HTTP/1.1 {status} {reason}\r\n{headers}\r\n{body}"
@@ -162,6 +170,20 @@ mod tests {
         assert!(
             output.contains("Content-Length: 2\r\n"),
             "expected Content-Length header, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn add_header_appends_header() {
+        let mut response = Response::new(200, "OK");
+        response.add_header("X-Test", "val");
+        let mut buf: Vec<u8> = Vec::new();
+        response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.contains("X-Test: val\r\n"),
+            "add_header did not append: {:?}",
             output
         );
     }
