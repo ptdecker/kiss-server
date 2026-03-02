@@ -195,13 +195,17 @@ mod tests {
     fn spawn_handle_connection_test(send_bytes: &'static [u8]) -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
-        thread::spawn(move || {
+        let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
             client.write_all(send_bytes).unwrap();
-            drop(client);
+            // Read until server closes — keeps connection alive until handler finishes
+            let mut buf = Vec::new();
+            let _ = client.read_to_end(&mut buf);
         });
         let (stream, _) = listener.accept().unwrap();
-        handle_connection(stream)
+        let result = handle_connection(stream);
+        client_thread.join().unwrap();
+        result
     }
 
     #[test]
