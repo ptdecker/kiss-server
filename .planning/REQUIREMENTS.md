@@ -14,7 +14,7 @@
 - [x] **HTTP-05**: All HTTP response lines use CRLF (`\r\n`) terminators
 - [x] **HTTP-06**: Server responds 400 Bad Request for malformed HTTP requests (no panics)
 - [x] **HTTP-07**: Server responds 404 Not Found when no route matches
-- [ ] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
+- [x] **HTTP-08**: Server responds 500 Internal Server Error on unhandled errors
 
 ### Routing
 
@@ -97,7 +97,7 @@
 | HTTP-05 | Phase 2 | Complete |
 | HTTP-06 | Phase 2 | Complete |
 | HTTP-07 | Phase 3 | Complete |
-| HTTP-08 | Phase 3 | Pending |
+| HTTP-08 | Phase 3 | Complete |
 | ROUT-01 | Phase 3 | Complete |
 | ROUT-02 | Phase 3 | Complete |
 | ROUT-03 | Phase 3 | Complete |
