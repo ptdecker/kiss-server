@@ -6,15 +6,18 @@ use super::{
 
 /// Routes incoming requests to the first registered handler whose method and path match.
 ///
-/// Unmatched requests are handled by the built-in `NotFoundHandler` fallback (404).
+/// Unmatched requests are handled by the registered fallback handler when set, or by the
+/// built-in `NotFoundHandler` (404) when no fallback is registered.
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
+    fallback: Option<Box<dyn Handler>>,
 }
 
 impl std::fmt::Debug for Router {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Router")
             .field("routes_count", &self.routes.len())
+            .field("has_fallback", &self.fallback.is_some())
             .finish()
     }
 }
@@ -22,7 +25,21 @@ impl std::fmt::Debug for Router {
 impl Router {
     /// Create a new empty router. All requests will receive 404 until routes are registered.
     pub fn new() -> Self {
-        Router { routes: Vec::new() }
+        Router {
+            routes: Vec::new(),
+            fallback: None,
+        }
+    }
+
+    /// Set a fallback handler for unmatched requests (value-chaining builder).
+    ///
+    /// When set, the fallback handler is called for any request that does not match a
+    /// registered route. If no fallback is set, unmatched requests receive a built-in 404.
+    /// The safety guard (dotdot rejection, invalid %-sequences) still runs before the fallback.
+    #[allow(dead_code)] // forward-looking public API — used in Phase 5 static file serving
+    pub fn set_fallback(mut self, handler: impl Handler + 'static) -> Self {
+        self.fallback = Some(Box::new(handler));
+        self
     }
 
     /// Register a handler for the given HTTP method and exact path.
@@ -41,7 +58,8 @@ impl Router {
     /// The path is percent-decoded before routing. Invalid %-sequences and paths
     /// containing `..` components are rejected with 404 before any handler runs.
     ///
-    /// If no route matches, the built-in NotFoundHandler writes a 404 response.
+    /// If no route matches, calls the registered fallback handler when set, or the
+    /// built-in NotFoundHandler (404) when no fallback is registered.
     /// Returns `Ok(())` for all cases including rejection — never returns `Err` for
     /// path rejection (callers map `Err` to 500).
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
@@ -58,7 +76,10 @@ impl Router {
                 return handler.handle(ctx);
             }
         }
-        NotFoundHandler.handle(ctx)
+        match &self.fallback {
+            Some(h) => h.handle(ctx),
+            None => NotFoundHandler.handle(ctx),
+        }
     }
 }
 
@@ -254,6 +275,123 @@ mod tests {
         assert!(
             output.starts_with("HTTP/1.1 200"),
             "first match should win, got: {:?}",
+            output
+        );
+    }
+
+    // --- Fallback slot tests ---
+
+    // Minimal fallback handler that writes 200
+    struct OkFallbackHandler;
+    impl Handler for OkFallbackHandler {
+        fn handle(&self, ctx: &mut Context) -> Result<()> {
+            ctx.response = Response::new(200, "OK")
+                .header("Content-Length", "8")
+                .body(b"fallback".to_vec());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn new_router_has_no_fallback() {
+        // Router::new() without set_fallback — fallback field is None
+        let router = Router::new();
+        assert!(
+            router.fallback.is_none(),
+            "new router should have fallback = None"
+        );
+    }
+
+    #[test]
+    fn set_fallback_returns_self_for_chaining() {
+        // set_fallback() must return Self (value-chaining)
+        // This test verifies the builder pattern compiles and produces a Router
+        let router = Router::new().set_fallback(OkFallbackHandler);
+        assert!(
+            router.fallback.is_some(),
+            "fallback should be Some after set_fallback"
+        );
+    }
+
+    #[test]
+    fn dispatch_with_fallback_unmatched_calls_fallback() {
+        // Router with OkFallbackHandler set, unmatched GET /missing -> 200
+        let router = Router::new().set_fallback(OkFallbackHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/missing");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "expected fallback 200, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_with_fallback_matched_route_not_fallback() {
+        // Router with fallback set, matched GET / -> registered route handler, NOT fallback
+        let mut router = Router::new().set_fallback(OkFallbackHandler);
+        router.add("GET", "/", OkHandler).unwrap();
+        // OkHandler writes body "OK"; OkFallbackHandler writes body "fallback"
+        // Both return 200, so check body to distinguish which was called
+        let mut ctx = make_ctx(RequestMethod::Get, "/");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.contains("OK") && !output.contains("fallback"),
+            "registered route should win over fallback, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_with_fallback_dotdot_returns_404() {
+        // Safety guard runs before fallback — dotdot still gets 404
+        let router = Router::new().set_fallback(OkFallbackHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/../etc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "dotdot path should still get 404 even with fallback set, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_with_fallback_invalid_percent_returns_404() {
+        // Safety guard runs before fallback — invalid %-sequence still gets 404
+        let router = Router::new().set_fallback(OkFallbackHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/%GG");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "invalid %-sequence should still get 404 even with fallback set, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_no_fallback_unmatched_returns_404() {
+        // Router with no fallback, unmatched GET /missing -> built-in NotFoundHandler (404)
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/missing");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "no-fallback router should return 404 for unmatched, got: {:?}",
             output
         );
     }
