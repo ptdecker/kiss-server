@@ -12,19 +12,29 @@ use std::{
     thread,
 };
 
+#[allow(unused_imports)]
+pub use context::Context;
 pub use error::{Error, Result};
+#[allow(unused_imports)]
+pub use handler::Handler;
 use pool::ThreadPool;
-use request::Request;
-use response::Response;
+#[allow(unused_imports)]
+pub use request::{Request, RequestMethod};
+pub use response::Response;
+#[allow(unused_imports)]
+pub use router::Router;
 
 use super::*;
 
 use crate::time::DateTime;
 
+mod context;
 mod error;
+mod handler;
 mod pool;
 mod request;
 mod response;
+mod router;
 mod worker;
 
 /// Tread pool size
