@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-02T21:20:49Z"
+status: complete
+last_updated: "2026-03-02T21:37:47.018Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 5 of 5 (Static File Serving) — IN PROGRESS
-Plan: 2 of 3 in current phase (05-02 complete)
-Status: Phase 05-02 complete — StaticFileHandler implemented; mime_type(), not_found(), PATH-03 guard, HEAD branch; 83 tests green
-Last activity: 2026-03-02 — Plan 05-02 complete: StaticFileHandler struct + Handler impl + 27 new tests; all FILE-* and PATH-03 requirements satisfied
+Phase: 5 of 5 (Static File Serving) — COMPLETE
+Plan: 3 of 3 in current phase (05-03 complete)
+Status: Phase 05-03 complete — parse_root_from() + parse_root() + StaticFileHandler fallback wired; 87 tests green; awaiting human-verify checkpoint
+Last activity: 2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete
 
-Progress: [█████████░] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█████████░] 96%
 | Phase 04-url-path-safety P01 | 5 | 2 tasks | 2 files |
 | Phase 05-static-file-serving P01 | 2 | 1 tasks | 1 files |
 | Phase 05-static-file-serving P02 | 2 | 1 tasks | 1 files |
+| Phase 05-static-file-serving P03 | 8 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Recent decisions affecting current work:
 - [Phase 05-02]: decoded_path() Box<dyn Error> mapped to 404 at StaticFileHandler handler boundary — server::Error has no From<Box<dyn Error>> impl; invalid %-sequence is malformed request (not server error)
 - [Phase 05-02]: Symlink test uses remove_file before creating symlink to ensure idempotent test runs across multiple cargo test invocations
 - [Phase 05-02]: Forward-looking #[allow(dead_code)] on mime_type, not_found, StaticFileHandler, new() — all consumed in Plan 05-03 when main.rs is wired
+- [Phase 05-03]: Extracted parse_root_from(args: &[String]) from parse_root() to enable unit testing without std::env::args() injection
+- [Phase 05-03]: parse_root() skips args[0] via .skip(1) — parse_root_from receives only user-supplied arguments
+- [Phase 05-03]: Two-layer startup validation: is_dir() in parse_root_from() gives user-friendly error; StaticFileHandler::new() canonicalizes for symlink correctness
 
 ### Pending Todos
 
@@ -108,11 +112,10 @@ None.
 
 ### Blockers/Concerns
 
-- Phase 5 Plan 03 (main.rs wiring): Path traversal three-layer defense now fully implemented; Plan 03 is purely integration — wire StaticFileHandler into main.rs with --root CLI argument.
 - Signal handling (SIGTERM) deferred to v2 — not achievable from safe std alone; SIGINT via Ctrl+C causes TcpListener accept loop to error, which is a known acceptable limitation.
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 05-static-file-serving/05-02-PLAN.md — StaticFileHandler + mime_type + not_found + PATH-03 guard + 27 new tests; 83 tests green; Phase 05 Plan 2 of 3 complete
+Stopped at: Completed 05-static-file-serving/05-03-PLAN.md — parse_root_from() + StaticFileHandler fallback wired; 87 tests green; Phase 05 Plan 3 of 3 complete; awaiting human-verify checkpoint (Task 2)
 Resume file: None

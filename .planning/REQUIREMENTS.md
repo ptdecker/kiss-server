@@ -33,7 +33,7 @@
 
 - [x] **FILE-01**: Server reads files with binary-safe `fs::read()` (not `read_to_string`)
 - [x] **FILE-02**: Server detects MIME type from file extension and sets `Content-Type` accordingly
-- [ ] **FILE-03**: Static file root directory is configurable via CLI argument at startup
+- [x] **FILE-03**: Static file root directory is configurable via CLI argument at startup
 - [x] **FILE-04**: Server handles HEAD requests by returning headers only (no body)
 - [x] **FILE-05**: Server returns 404 when a requested static file does not exist
 
@@ -107,7 +107,7 @@
 | PATH-03 | Phase 4 | Complete |
 | FILE-01 | Phase 5 | Complete |
 | FILE-02 | Phase 5 | Complete |
-| FILE-03 | Phase 5 | Pending |
+| FILE-03 | Phase 5 | Complete |
 | FILE-04 | Phase 5 | Complete |
 | FILE-05 | Phase 5 | Complete |
 | SAFE-01 | Phase 2 | Complete |
