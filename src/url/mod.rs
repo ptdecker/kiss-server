@@ -1,8 +1,5 @@
 //! A basic URL parser with normalization
 
-// TODO: remove unused linting override
-#![allow(unused)]
-
 use std::{fmt, str::from_utf8};
 
 use super::*;
@@ -26,8 +23,72 @@ impl From<&str> for Url {
     }
 }
 
+// New methods are consumed by Router::dispatch() in Task 2 (src/server/router.rs).
+// The dead_code allow is removed once router wiring is in place.
+#[allow(dead_code)]
+impl Url {
+    /// Returns the path component of the URL, stripping any query string.
+    ///
+    /// If the raw path is "/file.html?v=1", returns "/file.html".
+    /// If no '?' is present, returns the full raw path.
+    pub fn path(&self) -> &str {
+        match self.raw_path.find('?') {
+            Some(idx) => &self.raw_path[..idx],
+            None => &self.raw_path,
+        }
+    }
+
+    /// Returns the query string component, if any.
+    ///
+    /// Returns `None` if no '?' is present.
+    /// Returns `Some("")` if the URL ends with '?' (empty query string).
+    pub fn query(&self) -> Option<&str> {
+        self.raw_path.find('?').map(|idx| &self.raw_path[idx + 1..])
+    }
+
+    /// Percent-decodes the path component of the URL.
+    ///
+    /// Strips the query string first, then decodes each `%HH` sequence into its raw byte,
+    /// converts the resulting byte buffer to a UTF-8 string.
+    ///
+    /// Returns `Err` if a `%` sequence is truncated or contains invalid hex digits.
+    pub fn decoded_path(&self) -> Result<String> {
+        let raw = self.path();
+        let mut buf: Vec<u8> = Vec::with_capacity(raw.len());
+        let mut chars = raw.chars();
+        while let Some(c) = chars.next() {
+            if c == '%' {
+                let hi = chars.next().ok_or_else(|| -> Box<dyn std::error::Error> {
+                    "invalid %-sequence: truncated".into()
+                })?;
+                let lo = chars.next().ok_or_else(|| -> Box<dyn std::error::Error> {
+                    "invalid %-sequence: truncated".into()
+                })?;
+                let byte = (hex_char_to_byte(hi)? << 4) | hex_char_to_byte(lo)?;
+                buf.push(byte);
+            } else {
+                let mut tmp = [0u8; 4];
+                buf.extend_from_slice(c.encode_utf8(&mut tmp).as_bytes());
+            }
+        }
+        String::from_utf8(buf).map_err(|e| e.to_string().into())
+    }
+
+    /// Returns `true` if the decoded path contains no `..` components.
+    ///
+    /// Returns `false` if decoding fails (invalid %-sequence) or if any path component is `..`.
+    pub fn is_safe(&self) -> bool {
+        match self.decoded_path() {
+            Ok(decoded) => !decoded.split('/').any(|component| component == ".."),
+            Err(_) => false,
+        }
+    }
+}
+
 // Helper function that converts a character to a byte assuming that it is a hexadecimal character.
 // An error is returned if the character is not '0-9a-fA-F'
+// Used by decoded_path(); #[allow] removed once router consumes decoded_path.
+#[allow(dead_code)]
 fn hex_char_to_byte(c: char) -> Result<u8> {
     match c {
         '0'..='9' => Ok(c as u8 - b'0'),
@@ -38,7 +99,8 @@ fn hex_char_to_byte(c: char) -> Result<u8> {
 }
 
 // Helper function that encodes a UTF-8 Unicode character as an RTF-3986 Percent-Encoding (Cf.
-// section 2.1).
+// section 2.1). Used only in tests.
+#[allow(dead_code)]
 fn pct_encode(uni_char: char) -> String {
     let mut encoded = String::with_capacity(12);
     for byte in uni_char.to_string().as_bytes() {
@@ -49,7 +111,8 @@ fn pct_encode(uni_char: char) -> String {
 
 // Helper function that takes a value stored in any type that can be referenced as a str.
 // If it contains an RTF 3986 Percent-Encoding of a valid UTF-8 Unicode character, that
-// character is returned as a char. Otherwise, and error is returned.
+// character is returned as a char. Otherwise, and error is returned. Used only in tests.
+#[allow(dead_code)]
 fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
     let mut chars = pct_encoded.as_ref().chars().peekable();
     let mut bytes = Vec::<u8>::new();
@@ -80,6 +143,80 @@ fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_strips_query() {
+        assert_eq!(Url::from("/file.html?v=1").path(), "/file.html");
+        assert_eq!(Url::from("/file.html").path(), "/file.html");
+        assert_eq!(Url::from("/a?b=c&d=e").path(), "/a");
+    }
+
+    #[test]
+    fn query_returns_string() {
+        assert_eq!(Url::from("/file.html?v=1").query(), Some("v=1"));
+        assert_eq!(Url::from("/file.html").query(), None);
+        assert_eq!(Url::from("/file.html?").query(), Some(""));
+    }
+
+    #[test]
+    fn decoded_path_ascii() {
+        let url = Url::from("/my%20file.html");
+        assert_eq!(url.decoded_path().unwrap(), "/my file.html");
+    }
+
+    #[test]
+    fn decoded_path_multibyte() {
+        let url = Url::from("/%C3%A9.html");
+        assert_eq!(url.decoded_path().unwrap(), "/\u{00E9}.html");
+    }
+
+    #[test]
+    fn decoded_path_plain() {
+        let url = Url::from("/plain.html");
+        assert_eq!(url.decoded_path().unwrap(), "/plain.html");
+    }
+
+    #[test]
+    fn decoded_path_invalid_hex() {
+        let url = Url::from("/%GG");
+        assert!(url.decoded_path().is_err());
+    }
+
+    #[test]
+    fn decoded_path_truncated() {
+        let url = Url::from("/%2");
+        assert!(url.decoded_path().is_err());
+    }
+
+    #[test]
+    fn decoded_path_strips_query_before_decode() {
+        // query contains %20 but path does not; path() strips query first
+        let url = Url::from("/path?query=%20");
+        assert_eq!(url.decoded_path().unwrap(), "/path");
+    }
+
+    #[test]
+    fn is_safe_dotdot() {
+        assert!(!Url::from("/path/../etc").is_safe());
+    }
+
+    #[test]
+    fn is_safe_encoded_dotdot() {
+        assert!(!Url::from("/%2E%2E/etc").is_safe());
+        assert!(!Url::from("/%2E%2e/etc").is_safe());
+    }
+
+    #[test]
+    fn is_safe_normal_path() {
+        assert!(Url::from("/normal/path").is_safe());
+        assert!(Url::from("/path/.../file").is_safe());
+        assert!(Url::from("/path/./file").is_safe());
+    }
+
+    #[test]
+    fn is_safe_invalid_decode() {
+        assert!(!Url::from("/%GG/path").is_safe());
+    }
 
     #[test]
     fn hex_byte() {
