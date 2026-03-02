@@ -50,7 +50,7 @@
 
 - [x] **TIME-01**: DateTime year calculation uses arithmetic formula (not iteration from 1970)
 - [x] **TIME-02**: DateTime month calculation uses arithmetic (not sequential iteration)
-- [ ] **TIME-03**: DateTime exposes IMF-fixdate formatting for the HTTP `Date:` response header
+- [x] **TIME-03**: DateTime exposes IMF-fixdate formatting for the HTTP `Date:` response header
 
 ## v2 Requirements
 
@@ -118,7 +118,7 @@
 | SAFE-06 | Phase 1 | Complete |
 | TIME-01 | Phase 1 | Complete |
 | TIME-02 | Phase 1 | Complete |
-| TIME-03 | Phase 2 | Pending |
+| TIME-03 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 29 total

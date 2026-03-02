@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-02T00:25:00Z"
+last_updated: "2026-03-02T00:21:00Z"
 progress:
   total_phases: 5
   completed_phases: 1
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 2 of 5 (Response and HTTP Compliance)
-Plan: 1 of N in current phase (02-02 complete)
+Plan: 1 of 3 in current phase (02-01 complete, 02-02 complete)
 Status: Phase 2 in progress
-Last activity: 2026-03-02 — Plan 02-02 complete: Response struct with RFC 9112-compliant write_to serializer
+Last activity: 2026-03-02 — Plan 02-01 complete: IMF-fixdate formatter on DateTime (weekday_from_days + to_imf_fixdate)
 
 Progress: [██░░░░░░░░] 22%
 
@@ -66,6 +66,9 @@ Recent decisions affecting current work:
 - Plan 01-02: Use read_line loop (not .lines() iterator) for bounded header collection; .lines() cannot bound and panics on invalid UTF-8
 - Plan 01-02: Unmatched routes close connection silently (no 404) — routing is Phase 3 responsibility
 - Plan 01-02: MAX_HEADER_LINES enforced in both collection loop and parse() as defense-in-depth
+- Plan 02-01: weekday_from_days uses Howard Hinnant's algorithm: ((z+4)%7) for z>=-4, gives 0=Sunday..6=Saturday
+- Plan 02-01: to_imf_fixdate takes &self (non-consuming) despite Clippy warning — correct for a formatter; suppress with #[allow(clippy::wrong_self_convention)]
+- Plan 02-01: Epoch day for 2025-12-01 is 20423 (plan had 20440 which is 2025-12-18 — corrected via Python verification)
 - Plan 02-02: Response::write_to returns std::io::Result<()> directly — avoids super::* import, simpler for callers
 - Plan 02-02: Vec<(String, String)> for headers (not HashMap) — preserves insertion order, avoids hashing overhead for <15 headers
 - Plan 02-02: write_to consumes self — prevents double-send, Rust ownership enforces correct use at compile time
@@ -82,5 +85,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 02-response-and-http-compliance/02-02-PLAN.md — Response struct with RFC-compliant serializer; ready for Plan 02-03 wiring
+Stopped at: Completed 02-response-and-http-compliance/02-01-PLAN.md — IMF-fixdate formatter on DateTime; to_imf_fixdate() ready for Plan 02-03
 Resume file: None
