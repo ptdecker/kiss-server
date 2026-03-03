@@ -35,16 +35,6 @@ impl Url {
         }
     }
 
-    /// Returns the query string component, if any.
-    ///
-    /// Returns `None` if no '?' is present.
-    /// Returns `Some("")` if the URL ends with '?' (empty query string).
-    // Forward-looking public API; consumed by StaticFileHandler in Phase 5.
-    #[allow(dead_code)]
-    pub fn query(&self) -> Option<&str> {
-        self.raw_path.find('?').map(|idx| &self.raw_path[idx + 1..])
-    }
-
     /// Percent-decodes the path component of the URL.
     ///
     /// Strips the query string first, then decodes each `%HH` sequence into its raw byte,
@@ -71,18 +61,6 @@ impl Url {
             }
         }
         String::from_utf8(buf).map_err(|e| e.to_string().into())
-    }
-
-    /// Returns `true` if the decoded path contains no `..` components.
-    ///
-    /// Returns `false` if decoding fails (invalid %-sequence) or if any path component is `..`.
-    // Forward-looking public API; usable standalone in tests and Phase 5.
-    #[allow(dead_code)]
-    pub fn is_safe(&self) -> bool {
-        match self.decoded_path() {
-            Ok(decoded) => !decoded.split('/').any(|component| component == ".."),
-            Err(_) => false,
-        }
     }
 }
 
@@ -151,13 +129,6 @@ mod tests {
     }
 
     #[test]
-    fn query_returns_string() {
-        assert_eq!(Url::from("/file.html?v=1").query(), Some("v=1"));
-        assert_eq!(Url::from("/file.html").query(), None);
-        assert_eq!(Url::from("/file.html?").query(), Some(""));
-    }
-
-    #[test]
     fn decoded_path_ascii() {
         let url = Url::from("/my%20file.html");
         assert_eq!(url.decoded_path().unwrap(), "/my file.html");
@@ -192,29 +163,6 @@ mod tests {
         // query contains %20 but path does not; path() strips query first
         let url = Url::from("/path?query=%20");
         assert_eq!(url.decoded_path().unwrap(), "/path");
-    }
-
-    #[test]
-    fn is_safe_dotdot() {
-        assert!(!Url::from("/path/../etc").is_safe());
-    }
-
-    #[test]
-    fn is_safe_encoded_dotdot() {
-        assert!(!Url::from("/%2E%2E/etc").is_safe());
-        assert!(!Url::from("/%2E%2e/etc").is_safe());
-    }
-
-    #[test]
-    fn is_safe_normal_path() {
-        assert!(Url::from("/normal/path").is_safe());
-        assert!(Url::from("/path/.../file").is_safe());
-        assert!(Url::from("/path/./file").is_safe());
-    }
-
-    #[test]
-    fn is_safe_invalid_decode() {
-        assert!(!Url::from("/%GG/path").is_safe());
     }
 
     #[test]
