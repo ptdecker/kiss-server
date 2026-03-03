@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 5.1 context gathered
-last_updated: "2026-03-03T18:37:42.062Z"
+stopped_at: Completed 05.1-02-PLAN.md — PATH-03 traceability and --root behavior description corrected
+last_updated: "2026-03-03T19:53:52.200Z"
 last_activity: "2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete"
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 14
+  completed_plans: 13
   percent: 100
 ---
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100%
 | Phase 05-static-file-serving P01 | 2 | 1 tasks | 1 files |
 | Phase 05-static-file-serving P02 | 2 | 1 tasks | 1 files |
 | Phase 05-static-file-serving P03 | 8 | 1 tasks | 1 files |
+| Phase 05.1-address-tech-debt P02 | 1 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,7 @@ Recent decisions affecting current work:
 - [Phase 05-03]: Extracted parse_root_from(args: &[String]) from parse_root() to enable unit testing without std::env::args() injection
 - [Phase 05-03]: parse_root() skips args[0] via .skip(1) — parse_root_from receives only user-supplied arguments
 - [Phase 05-03]: Two-layer startup validation: is_dir() in parse_root_from() gives user-friendly error; StaticFileHandler::new() canonicalizes for symlink correctness
+- [Phase 05.1-02]: 05-03-SUMMARY.md --root behavior confirmed inaccurate via src/main.rs: parse_root_from() returns Ok('.') when --root absent; summary corrected
 
 ### Roadmap Evolution
 
@@ -123,6 +125,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-03T18:37:42.049Z
-Stopped at: Phase 5.1 context gathered
-Resume file: .planning/phases/05.1-address-tech-debt/05.1-CONTEXT.md
+Last session: 2026-03-03T19:53:52.196Z
+Stopped at: Completed 05.1-02-PLAN.md — PATH-03 traceability and --root behavior description corrected
+Resume file: None
