@@ -36,7 +36,6 @@ impl Router {
     /// When set, the fallback handler is called for any request that does not match a
     /// registered route. If no fallback is set, unmatched requests receive a built-in 404.
     /// The safety guard (dotdot rejection, invalid %-sequences) still runs before the fallback.
-    #[allow(dead_code)] // forward-looking public API — used in Phase 5 static file serving
     pub fn set_fallback(mut self, handler: impl Handler + 'static) -> Self {
         self.fallback = Some(Box::new(handler));
         self

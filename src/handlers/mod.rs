@@ -11,7 +11,7 @@ pub struct RootHandler;
 
 impl Handler for RootHandler {
     fn handle(&self, ctx: &mut Context) -> Result<()> {
-        let body = b"OK".to_vec();
+        let body = b"OK\n".to_vec();
         let content_length = body.len().to_string();
         ctx.response = Response::new(200, "OK")
             .header("Content-Type", "text/plain")
@@ -26,8 +26,6 @@ impl Handler for RootHandler {
 ///
 /// Covers the 10 locked extensions required by FILE-02. Unknown extensions
 /// fall back to `application/octet-stream`.
-// Forward-looking: consumed by StaticFileHandler::handle() which is registered in Plan 05-03.
-#[allow(dead_code)]
 fn mime_type(path: &std::path::Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
         Some("html") => "text/html",
@@ -47,10 +45,8 @@ fn mime_type(path: &std::path::Path) -> &'static str {
 /// Sets a 404 Not Found response on the context.
 ///
 /// Used by StaticFileHandler for missing files and traversal rejections.
-// Forward-looking: consumed by StaticFileHandler::handle() which is registered in Plan 05-03.
-#[allow(dead_code)]
 fn not_found(ctx: &mut Context) -> Result<()> {
-    let body = b"Not Found".to_vec();
+    let body = b"Not Found\n".to_vec();
     let content_length = body.len().to_string();
     ctx.response = Response::new(404, "Not Found")
         .header("Content-Type", "text/plain")
@@ -68,8 +64,6 @@ fn not_found(ctx: &mut Context) -> Result<()> {
 /// - Handles HEAD requests with headers only, no body (FILE-04)
 /// - Applies `canonicalize + starts_with(root)` traversal guard (PATH-03)
 /// - Returns 404 for missing files (not 500)
-// Forward-looking: registered in main.rs in Plan 05-03.
-#[allow(dead_code)]
 pub struct StaticFileHandler {
     canonical_root: PathBuf,
 }
@@ -79,8 +73,6 @@ impl StaticFileHandler {
     ///
     /// Canonicalizes `root` at construction time so per-request checks are fast.
     /// Returns `Err` if `root` does not exist or cannot be canonicalized.
-    // Forward-looking: called in main.rs in Plan 05-03.
-    #[allow(dead_code)]
     pub fn new(root: PathBuf) -> Result<Self> {
         let canonical_root = std::fs::canonicalize(&root)?;
         Ok(StaticFileHandler { canonical_root })
@@ -224,7 +216,7 @@ mod tests {
         let output = String::from_utf8(buf).unwrap();
         let sep_pos = output.find("\r\n\r\n").expect("no blank separator");
         let body = &output[sep_pos + 4..];
-        assert_eq!(body, "OK", "expected body 'OK', got: {:?}", body);
+        assert_eq!(body, "OK\n", "expected body 'OK\\n', got: {:?}", body);
     }
 
     // --- Helper: make a GET context for a given path ---
@@ -335,7 +327,7 @@ mod tests {
         );
         let sep_pos = output.find("\r\n\r\n").expect("no blank separator");
         let body = &output[sep_pos + 4..];
-        assert_eq!(body, "Not Found", "expected 'Not Found' body");
+        assert_eq!(body, "Not Found\n", "expected 'Not Found\\n' body");
     }
 
     // ========== StaticFileHandler::new() tests ==========
