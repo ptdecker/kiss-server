@@ -64,7 +64,7 @@ completed: 2026-03-02
 - main() updated: parse_root()? -> StaticFileHandler::new(root)? -> router.set_fallback(handler)
 - 4 new unit tests covering valid dir, missing --root flag, --root with no path value, nonexistent path
 - All 87 project tests pass; cargo clippy -- -D warnings clean; cargo build clean
-- `cargo run` (no args) exits with `Error: "--root <path> is required"` and non-zero exit code
+- `cargo run` (no args) defaults --root to "." (current directory) and starts the server; --root is optional
 - `cargo run -- --root /nonexistent` exits with descriptive error referencing --root
 
 ## Task Commits
