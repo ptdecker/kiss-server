@@ -185,7 +185,10 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     info!("{}", http_request[0]);
     info!("Method: {}", request.method);
     info!("Target: {}", request.target);
-    debug!("Request ({:?}): {:#?}", stream.peer_addr()?, http_request);
+    let peer = stream
+        .peer_addr()
+        .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap());
+    debug!("Request ({:?}): {:?}", peer, http_request);
 
     let mut ctx = Context {
         request,
