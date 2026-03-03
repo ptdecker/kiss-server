@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-last_updated: "2026-03-02T21:37:47.018Z"
+status: verifying
+stopped_at: Phase 5.1 context gathered
+last_updated: "2026-03-03T18:37:42.062Z"
+last_activity: "2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
   total_plans: 12
   completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -106,6 +109,10 @@ Recent decisions affecting current work:
 - [Phase 05-03]: parse_root() skips args[0] via .skip(1) — parse_root_from receives only user-supplied arguments
 - [Phase 05-03]: Two-layer startup validation: is_dir() in parse_root_from() gives user-friendly error; StaticFileHandler::new() canonicalizes for symlink correctness
 
+### Roadmap Evolution
+
+- Phase 5.1 inserted after Phase 5: Address tech debt (URGENT)
+
 ### Pending Todos
 
 None.
@@ -116,6 +123,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Completed 05-static-file-serving/05-03-PLAN.md — parse_root_from() + StaticFileHandler fallback wired; 87 tests green; Phase 05 Plan 3 of 3 complete; awaiting human-verify checkpoint (Task 2)
-Resume file: None
+Last session: 2026-03-03T18:37:42.049Z
+Stopped at: Phase 5.1 context gathered
+Resume file: .planning/phases/05.1-address-tech-debt/05.1-CONTEXT.md
