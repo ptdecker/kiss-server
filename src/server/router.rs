@@ -87,7 +87,7 @@ struct NotFoundHandler;
 
 impl Handler for NotFoundHandler {
     fn handle(&self, ctx: &mut Context) -> Result<()> {
-        let body = b"Not Found".to_vec();
+        let body = b"Not Found\n".to_vec();
         let content_length = body.len().to_string();
         ctx.response = Response::new(404, "Not Found")
             .header("Content-Type", "text/plain")
@@ -392,6 +392,27 @@ mod tests {
             output.starts_with("HTTP/1.1 404"),
             "no-fallback router should return 404 for unmatched, got: {:?}",
             output
+        );
+    }
+
+    #[test]
+    fn dispatch_unmatched_body_has_trailing_newline() {
+        // NotFoundHandler body must match not_found() helper: "Not Found\n" (with newline)
+        // Regression test for UAT test 6: path traversal returned 404 without trailing newline
+        let router = Router::new();
+        let mut ctx = make_ctx(RequestMethod::Get, "/missing");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        let sep_pos = output
+            .find("\r\n\r\n")
+            .expect("no blank separator in 404 response");
+        let body = &output[sep_pos + 4..];
+        assert_eq!(
+            body, "Not Found\n",
+            "NotFoundHandler body must end with newline, got: {:?}",
+            body
         );
     }
 }
