@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-10T20:29:53.189Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-10T20:49:29.626Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 **Recent Trend:** Stable
 
 *Updated after each plan completion*
+| Phase 06-ci-pipeline P01 | 10 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - Roadmap: Use t3.micro x86_64 (not t4g arm64) — CI runner is x86_64; architecture mismatch causes silent green-CI / broken-prod failure
 - Roadmap: CD health check is non-negotiable — systemctl restart exits 0 even on immediate crash; must follow with systemctl is-active check
 - Roadmap: SCP to /tmp/ then atomic mv — never SCP over a running binary (SIGBUS risk)
+- [Phase 06-ci-pipeline]: Job name 'ci' chosen for GitHub Actions workflow — Phase 7 branch protection selects by this exact name
+- [Phase 06-ci-pipeline]: dtolnay/rust-toolchain@master reads rust-toolchain.toml automatically — no toolchain: input needed
+- [Phase 06-ci-pipeline]: scripts/ci.sh is single source of truth for CI steps — YAML only calls the script
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T20:29:53.182Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-ci-pipeline/06-CONTEXT.md
+Last session: 2026-03-10T20:49:24.014Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None

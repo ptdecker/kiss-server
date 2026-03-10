@@ -128,7 +128,7 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 4. URL Path Safety | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 5. Static File Serving | v1.0 | 5/5 | Complete | 2026-03-10 |
 | 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
-| 6. CI Pipeline | v1.1 | 0/2 | Not started | - |
+| 6. CI Pipeline | 1/2 | In Progress|  | - |
 | 7. Branch Protection | v1.1 | 0/? | Not started | - |
 | 8. AWS Infrastructure | v1.1 | 0/? | Not started | - |
 | 9. EC2 Service Setup | v1.1 | 0/? | Not started | - |

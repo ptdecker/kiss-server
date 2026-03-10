@@ -7,12 +7,12 @@
 
 ### CI — Continuous Integration
 
-- [ ] **CI-01**: Developer can see CI run on every push to `main` and milestone branches and on every PR targeting `main`
-- [ ] **CI-02**: CI fails (and blocks PR merge) if `cargo fmt -- --check` reports formatting issues
-- [ ] **CI-03**: CI fails (and blocks PR merge) if `cargo clippy -- -D warnings` reports any lint warning
-- [ ] **CI-04**: CI fails (and blocks PR merge) if any `cargo test` test fails
-- [ ] **CI-05**: Rust toolchain version is pinned in `rust-toolchain.toml` to prevent surprise lint failures from toolchain updates
-- [ ] **CI-06**: Cargo registry and build artifacts are cached between CI runs to reduce build time
+- [x] **CI-01**: Developer can see CI run on every push to `main` and milestone branches and on every PR targeting `main`
+- [x] **CI-02**: CI fails (and blocks PR merge) if `cargo fmt -- --check` reports formatting issues
+- [x] **CI-03**: CI fails (and blocks PR merge) if `cargo clippy -- -D warnings` reports any lint warning
+- [x] **CI-04**: CI fails (and blocks PR merge) if any `cargo test` test fails
+- [x] **CI-05**: Rust toolchain version is pinned in `rust-toolchain.toml` to prevent surprise lint failures from toolchain updates
+- [x] **CI-06**: Cargo registry and build artifacts are cached between CI runs to reduce build time
 
 ### BRANCH — Branch Protection
 
@@ -74,12 +74,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CI-01 | Phase 6 | Pending |
-| CI-02 | Phase 6 | Pending |
-| CI-03 | Phase 6 | Pending |
-| CI-04 | Phase 6 | Pending |
-| CI-05 | Phase 6 | Pending |
-| CI-06 | Phase 6 | Pending |
+| CI-01 | Phase 6 | Complete |
+| CI-02 | Phase 6 | Complete |
+| CI-03 | Phase 6 | Complete |
+| CI-04 | Phase 6 | Complete |
+| CI-05 | Phase 6 | Complete |
+| CI-06 | Phase 6 | Complete |
 | BRANCH-01 | Phase 7 | Pending |
 | BRANCH-02 | Phase 7 | Pending |
 | INFRA-01 | Phase 8 | Pending |
