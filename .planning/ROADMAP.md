@@ -109,14 +109,14 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Response and HTTP Compliance | 3/3 | Complete   | 2026-03-02 |
 | 3. Handler, Context, and Router | 3/3 | Complete   | 2026-03-02 |
 | 4. URL Path Safety | 1/1 | Complete   | 2026-03-02 |
-| 5. Static File Serving | 4/4 | Complete   | 2026-03-10 |
+| 5. Static File Serving | 5/5 | Complete   | 2026-03-10 |
 
 ### Phase 05.1: Address tech debt (INSERTED)
 
 **Goal:** Remove stale #[allow(dead_code)] annotations (handlers/mod.rs, router.rs), delete dead public APIs Url::is_safe() and Url::query() with their tests, fix peer_addr()? propagation hazard in debug log, and correct two planning document inaccuracies
 **Requirements**: TBD (tech debt items, no formal requirement IDs)
 **Depends on:** Phase 5
-**Plans:** 4/4 plans complete
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 05.1-01-PLAN.md — Code cleanup: remove stale annotations, delete dead APIs + tests, fix peer_addr()? (handlers/mod.rs, router.rs, url/mod.rs, server/mod.rs)
