@@ -4,12 +4,12 @@ milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
 stopped_at: Phase 6 context gathered
-last_updated: "2026-03-10T20:29:53.189Z"
+last_updated: "2026-03-10T21:15:03.901Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
