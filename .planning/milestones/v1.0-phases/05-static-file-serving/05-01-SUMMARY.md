@@ -106,6 +106,12 @@ None - no external service configuration required.
 - Phase 05-02 can implement `StaticFileHandler` with `router.set_fallback(StaticFileHandler::new(...))` in `main.rs`
 - PATH-03 requirement (canonicalize + starts_with root check) is satisfied by the plan frontmatter — the actual implementation belongs in StaticFileHandler (Plan 05-02 or 05-03)
 
+## Self-Check: PASSED
+
+- FOUND: src/server/router.rs
+- FOUND: .planning/phases/05-static-file-serving/05-01-SUMMARY.md
+- FOUND commit: c206928
+
 ---
 *Phase: 05-static-file-serving*
 *Completed: 2026-03-02*

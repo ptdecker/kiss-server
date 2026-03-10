@@ -96,3 +96,10 @@ None - no external service configuration required.
 ---
 *Phase: 05-static-file-serving*
 *Completed: 2026-03-09*
+
+## Self-Check: PASSED
+
+- FOUND: src/main.rs (modified with Err branch + renamed test)
+- FOUND: .planning/phases/05-static-file-serving/05-05-SUMMARY.md
+- FOUND: commit 64f749d (feat(05-05): make --root required in parse_root_from())
+- FOUND: commit b58b849 (docs(05-05): complete --root required gap closure plan)
