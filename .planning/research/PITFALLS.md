@@ -1,725 +1,334 @@
-# Domain Pitfalls: Pure-Rust HTTP/1.1 Static File Server
+# Domain Pitfalls: Ops & Deployment (v1.1)
 
-**Domain:** Pure-Rust HTTP/1.1 static file server (no external dependencies)
-**Researched:** 2026-02-28
-**Confidence:** HIGH — all findings are drawn from Rust stdlib documentation,
-RFC 3986/9110/9112 specifications, and verified against the existing codebase
-analysis in CONCERNS.md. No web searches were used; confidence is based on
-authoritative specification knowledge and Rust stdlib behavior.
+**Domain:** CI/CD pipeline, AWS EC2 deployment, DNS routing, GitHub releases for Rust binary
+**Researched:** 2026-03-10
+**Confidence:** HIGH — GitHub Actions official docs, AWS official docs, GoDaddy official help, community-verified patterns
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause security incidents, correctness failures, or require rewrites.
+---
+
+### Pitfall 1: Architecture Mismatch — CI Runner x86_64 vs EC2 arm64
+
+**What goes wrong:** GitHub Actions `ubuntu-latest` runner is x86_64. If EC2 is `arm64` (e.g., t4g), the compiled binary fails to execute with `Exec format error`. Binary copies silently via SCP — failure only appears when `systemctl start` runs.
+
+**Why it happens:** t4g instances are cheaper (~$3/mo vs $8.47/mo for t3.micro). Developers pick them without checking that the default CI runner builds x86_64.
+
+**Consequences:** Service fails after every deployment. CI reports green while prod is broken.
+
+**Prevention:**
+1. Use `t3.micro` (x86_64) — matches `ubuntu-latest` runner; no cross-compilation
+2. Add post-deploy health check: `systemctl is-active kiss-server || exit 1`
+3. Document EC2 architecture alongside the workflow file
+
+**Detection:**
+- `systemctl status kiss-server` shows `Exec format error`
+- `file /usr/local/bin/kiss-server` shows `ARM aarch64` on x86_64 host
+
+**Phase:** AWS infrastructure phase — decide EC2 instance type before writing any workflow YAML.
 
 ---
 
-### Pitfall 1: Path Traversal via `..` Segments After Percent-Decode
+### Pitfall 2: Branch Protection Locks You Out — Required Check Name Mismatch
 
-**What goes wrong:**
-A client sends `GET /%2e%2e/%2e%2e/etc/passwd HTTP/1.1`. The server percent-decodes
-the path first (producing `../../etc/passwd`), then passes the decoded string to
-`root.join(decoded_path)`. The `PathBuf::join()` call happily traverses above the
-root. The server serves `/etc/passwd` with a 200 OK.
+**What goes wrong:** Branch protection requires a status check named `"ci"`. Workflow defines job named `build`. The required check never satisfies — every PR is permanently blocked.
 
-A subtler variant: the client sends `GET /static/../../../../etc/passwd`. After join,
-the path escapes the root but no `..` normalization is applied before the file is read.
+A subtler variant: adding the branch protection rule before CI has run at least once. The check name won't appear in the autocomplete dropdown, leading to a typo that blocks all merges.
 
-Another variant exploits how `Path::join()` handles absolute paths in Rust: if the
-decoded path starts with `/`, `PathBuf::join("/etc/passwd")` discards the root entirely
-and resolves to `/etc/passwd`. This is Rust-specific and surprises many implementors.
+**Consequences:** All PRs blocked. If "Do not allow bypassing the above settings" is enabled for admins too, there is no recovery path short of GitHub support.
 
-**Why it happens:**
-Developers normalize paths lexically (stripping `..` with string manipulation), or
-check the path string before decoding rather than after. Neither is sufficient.
-The `PathBuf::join()` absolute-path behavior is not obvious from the name.
+**Prevention:**
+1. Name the workflow job with a stable, intentional name: `ci` — never rename it
+2. Push a commit to any branch and let CI run before configuring branch protection
+3. Use the autocomplete dropdown to select the check name — do NOT type manually
+4. Never enable "Do not allow bypassing the above settings" as a solo developer — you need an admin escape hatch
 
-**Consequences:**
-Arbitrary file read anywhere on the server filesystem the process has read access to.
-On a typical development machine this means all user files. Critical security failure.
+**Detection:**
+- PR shows "Required status check 'X' has not run" even after CI passes
+- The passing check has a different name than the required check
 
-**Prevention (pure-Rust, no deps):**
-1. Percent-decode the path first. Never pass a percent-encoded string to filesystem APIs.
-2. Strip any leading `/` from the decoded path before calling `root.join()`. This prevents
-   `PathBuf::join()` from discarding the root on absolute paths.
-3. After `root.join(stripped_path)`, call `fs::canonicalize()` on the result. This
-   resolves all `..` components and symlinks, producing the true absolute path.
-4. Verify the canonicalized path starts with the canonicalized root:
-   ```rust
-   let root_canon = fs::canonicalize(&self.root)?;
-   let file_canon = fs::canonicalize(&full_path)?;
-   if !file_canon.starts_with(&root_canon) {
-       return Ok(Response::forbidden());
-   }
+**Phase:** Branch protection phase — always after first successful CI run.
+
+---
+
+### Pitfall 3: SSH Private Key CRLF — OpenSSH Rejects It
+
+**What goes wrong:** EC2 SSH private key is pasted into a GitHub Secret with Windows line endings (`\r\n`). OpenSSH reports `Load key: invalid format`. Developer echoes the key for debugging, exposing it in workflow logs.
+
+**Why it happens:** Key is copied from AWS Console on Windows or macOS, pasted into the GitHub Secret textarea. CRLF issue only surfaces when `ssh` runs.
+
+**Consequences:** CD pipeline fails with cryptic error. Attempted debug exposes the private key in public logs.
+
+**Prevention:**
+1. Test the key locally: `ssh-keygen -y -f key.pem` — if this succeeds, format is correct
+2. Strip CRLF before storing: `tr -d '\r' < key.pem` on a Unix system
+3. In the workflow, write the key to a temp file without echoing:
+   ```bash
+   echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/deploy_key
+   chmod 600 /tmp/deploy_key
    ```
-5. Canonicalize the root in `StaticFileHandler::new()`, not on every request, to avoid
-   redundant syscalls.
+4. Never use `echo ${{ secrets.EC2_SSH_KEY }}` or `set -x` in a deploy workflow
 
-**Warning signs:**
-- Any code that calls `root.join(user_input)` without a subsequent `starts_with` check.
-- String manipulation to remove `..` (e.g., `replace("../", "")`) before the join.
-- Checking for `..` before percent-decoding.
+**Detection:**
+- `ssh` reports `Load key "/tmp/key": invalid format`
+- GitHub Actions log shows base64-like content — key was echoed
 
-**Phase:** Phase 5 (StaticFileHandler) — must be in the initial implementation, not
-added later. This is not an optimization; it is a correctness requirement.
+**Phase:** CD pipeline phase — validate key format locally before storing as secret.
 
 ---
 
-### Pitfall 2: `fs::canonicalize()` Fails on Non-Existent Paths
+### Pitfall 4: EC2 Security Group Opens SSH to 0.0.0.0/0
 
-**What goes wrong:**
-The path traversal check described in Pitfall 1 relies on `fs::canonicalize()`.
-However, `canonicalize()` calls `realpath(3)` on Unix, which returns an error if any
-component of the path does not exist on disk. If the file does not exist,
-`canonicalize()` returns `Err(NotFound)`, and a naive implementation either panics,
-returns a 500, or skips the security check entirely.
+**What goes wrong:** Security group inbound rule for port 22 allows `0.0.0.0/0`. Within minutes, automated scanners begin brute-force attempts.
 
-If the error is caught and the handler returns 404, that is actually safe — but the
-code path that skips the security check to "just return 404 faster" is a vulnerability.
+Secondary mistake: opening port 8080 instead of port 80 — server runs on 8080 but Security Group opens the wrong port (or vice versa).
 
-**Why it happens:**
-Developers test with files that exist. The `canonicalize()` failure path only triggers
-for missing files, which is the exact case that looks like a benign 404.
+**Prevention:**
+1. Restrict SSH source to your home/work IP: `x.x.x.x/32`. Update when your IP changes.
+2. For CD pipeline SSH: add a second rule for GitHub Actions IP ranges, or accept any-source for SSH if your key is ED25519 (brute force is infeasible)
+3. Security Group opens port **80** (public HTTP). Port 8080 stays closed — the iptables redirect happens inside the instance.
+4. Verify Security Group port matches iptables redirect destination before testing DNS.
 
-**Consequences:**
-If the traversal check is skipped on `canonicalize` failure, an attacker can probe for
-non-existent files outside the root without triggering the check. More critically, on
-some platforms the traversal check can be bypassed entirely if the attacker crafts a
-path where `canonicalize` fails for a reason other than "not found."
+**Detection:**
+- `curl http://[elastic-ip]/` connection refused — Security Group not open on port 80, or kiss-server not responding on 8080
 
-**Prevention (pure-Rust, no deps):**
-Check traversal on the parent directory (which must exist for a valid file), or use a
-two-phase approach:
-1. Validate path components before canonicalization: reject any decoded path segment
-   that equals `..` or `.` after splitting on `/`. This is a defense-in-depth check.
-2. Attempt `canonicalize()`. If it returns `NotFound`, return 404 — but only after
-   the component-level check has already passed.
-3. Alternatively: canonicalize the parent directory chain until you reach the root,
-   and verify that chain stays within the root.
-
-The simplest safe implementation:
-```rust
-// Step 1: reject ".." components explicitly
-let decoded = request.target.decoded_path()?;
-let decoded = decoded.trim_start_matches('/');
-if decoded.split('/').any(|seg| seg == ".." || seg == ".") {
-    return Ok(Response::not_found());  // 404, not 403 — don't reveal structure
-}
-
-// Step 2: build full path
-let full_path = self.root.join(decoded);
-
-// Step 3: try to canonicalize; file-not-found is a normal 404
-let file_canon = match fs::canonicalize(&full_path) {
-    Ok(p) => p,
-    Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Response::not_found()),
-    Err(e) => return Err(e.into()),
-};
-
-// Step 4: verify containment (belt + suspenders)
-if !file_canon.starts_with(&self.root_canon) {
-    return Ok(Response::not_found());
-}
-```
-
-**Warning signs:**
-- `canonicalize()` result used directly without checking the error case.
-- A `?` operator after `canonicalize()` that would return 500 for missing files.
-- Any early-return that skips the `starts_with` check.
-
-**Phase:** Phase 5 (StaticFileHandler) — same phase as Pitfall 1.
+**Phase:** AWS infrastructure phase — security group before DNS configuration.
 
 ---
 
-### Pitfall 3: Panic in Worker Threads Poisons the Mutex and Kills All Workers
+### Pitfall 5: In-Place SCP Over Running Binary (SIGBUS Risk)
 
-**What goes wrong:**
-The existing worker threads use `.expect("unable to lock spawned thread")` when
-acquiring the job queue mutex. If any worker panics while holding the lock, the mutex
-becomes poisoned. The next `.lock()` call returns `Err(PoisonError)`. The `.expect()`
-call on that `Err` panics the second worker. This cascades: all workers panic in
-sequence, leaving the thread pool dead. The `TcpListener` keeps accepting connections
-but no workers are alive to handle them — the server silently hangs.
+**What goes wrong:** CD script SCPs directly to `/usr/local/bin/kiss-server` while the service is running. SCP may truncate and rewrite the file in-place, corrupting the running process's memory pages.
 
-This is already identified in CONCERNS.md but is critical enough to document in full
-for roadmap planning.
+**Why it happens:** SCP to the final path is simpler; developers don't realize `mv` is atomic but SCP is not.
 
-**Why it happens:**
-`Mutex::lock()` returns a `Result` specifically to communicate poisoning. Calling
-`.expect()` or `.unwrap()` converts this into a panic. Combined with a panic in a
-worker, this turns one failure into a total server crash.
+**Consequences:** Intermittent SIGBUS crashes after deployment. Timing-dependent; hard to reproduce.
 
-**Consequences:**
-One malformed request that causes a worker to panic kills the entire server silently.
-No log output, no error to the client, no recovery.
+**Prevention:**
+```bash
+# SCP to temp path
+scp kiss-server ec2:/tmp/kiss-server-new
 
-**Prevention (pure-Rust, no deps):**
-Handle the poison case explicitly in the worker loop:
-```rust
-loop {
-    let job = match receiver.lock() {
-        Ok(guard) => guard.recv(),
-        Err(poisoned) => {
-            // Log the poison; recover the inner data and continue
-            log::warn!("Worker recovered from poisoned mutex");
-            poisoned.into_inner().recv()
-        }
-    };
-
-    match job {
-        Ok(job) => job(),
-        Err(_) => break,  // Channel closed: shutdown
-    }
-}
+# Atomic replacement
+sudo systemctl stop kiss-server
+sudo mv /tmp/kiss-server-new /usr/local/bin/kiss-server
+sudo chmod +x /usr/local/bin/kiss-server
+sudo systemctl start kiss-server
 ```
+`mv` on the same filesystem is atomic on Linux. Always stop before mv.
 
-Additionally, in `ThreadPool::drop()`, never call `.expect()` or `.unwrap()` on
-`thread.join()`. Use `let _ = thread.join()` — a panicking thread has already done
-its damage; re-panicking in `Drop` causes a double-panic, which aborts the process.
+**Detection:**
+- `SIGBUS` in `journalctl -u kiss-server` immediately after deploy
+- Service occasionally starts old binary version after deploy
 
-**Warning signs:**
-- `.expect()` or `.unwrap()` on any `Mutex::lock()` result in worker code.
-- `.expect()` in a `Drop` implementation.
-- No test that sends a malformed request and verifies the server still responds.
-
-**Phase:** Phase 1 (bug fixes) — must be fixed before any new features are added.
+**Phase:** CD pipeline phase — atomic replacement from the very first deploy script.
 
 ---
 
-### Pitfall 4: Unbounded Request Reading Enables Memory Exhaustion
+### Pitfall 6: `systemctl restart` Exits 0 Even When Service Immediately Crashes
 
-**What goes wrong:**
-The existing request reader calls `BufReader::lines()` and collects lines until a blank
-line. An attacker sends an HTTP request with an infinite stream of headers — no blank
-line ever arrives. The server thread reads forever, consuming memory until the process
-OOMs or the connection is dropped by the OS.
+**What goes wrong:** CD workflow runs `sudo systemctl restart kiss-server` and the step exits 0 (success). But the service crashes immediately after start (e.g., wrong `--root` path, bad binary). Pipeline reports success; prod is broken.
 
-With a 4-thread pool, four concurrent infinite requests exhaust all workers.
+**Why it happens:** `systemctl restart` initiates the restart and exits — it does not wait for the service to stabilize.
 
-**Why it happens:**
-`BufReader::lines()` is a lazy iterator; the loop only terminates when a blank line is
-seen. If no blank line is sent, the loop never terminates.
+**Consequences:** Green pipeline, broken prod. The "silent deploy failure" pattern.
 
-**Consequences:**
-Complete denial of service with 4 connections. Even with a larger thread pool, a
-small number of connections can exhaust all workers.
-
-**Prevention (pure-Rust, no deps):**
-Enforce a maximum header count and a maximum header line size during parsing:
-```rust
-const MAX_HEADERS: usize = 100;
-const MAX_HEADER_LINE_BYTES: usize = 8192;  // 8 KB per header line
-
-let mut lines = Vec::new();
-for line in reader.lines().take(MAX_HEADERS + 1) {
-    let line = line?;
-    if line.len() > MAX_HEADER_LINE_BYTES {
-        return Err(Error::RequestTooLarge);
-    }
-    if line.is_empty() {
-        break;
-    }
-    lines.push(line);
-}
+**Prevention:**
+Every CD deploy must end with:
+```bash
+systemctl is-active kiss-server || (journalctl -u kiss-server -n 30 && exit 1)
 ```
+`systemctl is-active` exits non-zero if service is not `active`. This is the single highest-value safeguard in the entire pipeline.
 
-The `take(MAX_HEADERS + 1)` ensures the loop terminates even with no blank line.
-Return `400 Bad Request` when the limit is hit.
+**Detection:**
+- `systemctl status kiss-server` shows `failed` or `inactive` after deploy
+- `journalctl -u kiss-server -n 20` shows `--root is required` or similar
 
-**Warning signs:**
-- Any `for line in reader.lines()` loop without a count limit or `take()`.
-- No test for a request with no terminating blank line.
-- No test for a request with thousands of headers.
-
-**Phase:** Phase 1 (bug fixes) — this is a DoS vector present in the existing code.
-
----
-
-### Pitfall 5: Non-UTF-8 Request Data Panics the Parser
-
-**What goes wrong:**
-`BufReader::lines()` returns `io::Result<String>`. HTTP headers are ASCII, but clients
-(or attackers) can send binary data. A non-UTF-8 byte sequence causes `lines()` to
-return `Err(InvalidData)`. The existing code calls `.unwrap()` on this result, causing
-a worker thread panic.
-
-**Why it happens:**
-`BufReader::lines()` uses `String::from_utf8_lossy()` internally for UTF-8 detection
-but returns an error for invalid sequences. `.unwrap()` is a typical first-draft choice.
-
-**Consequences:**
-Any client (or attacker) sending a single binary byte in the request line crashes a
-worker thread, which then poisons the mutex (see Pitfall 3).
-
-**Prevention (pure-Rust, no deps):**
-Propagate the error with `?` rather than panicking:
-```rust
-let line = line.map_err(|e| Error::Io(e))?;
-```
-
-Or use `read_until(b'\n')` on the `BufReader` and convert bytes manually, rejecting
-non-ASCII with a 400 response:
-```rust
-if !line.is_ascii() {
-    return Err(Error::BadRequest("non-ASCII in headers"));
-}
-```
-
-Either approach converts a panic into a recoverable 400 error.
-
-**Warning signs:**
-- Any `.unwrap()` or `.expect()` on `io::Result<String>` from `BufReader::lines()`.
-- No test sending binary data to the request parser.
-
-**Phase:** Phase 1 (bug fixes) — existing known bug in CONCERNS.md.
+**Phase:** CD pipeline phase — health check is not optional.
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that produce incorrect behavior or spec violations, but do not crash the server.
+---
+
+### Pitfall 7: Cargo Cache Bloat Defeats CI Speed Gains
+
+**What goes wrong:** Naively caching `~/.cargo` and `target/` causes cache to grow unboundedly. After 10-20 runs, restore/save time exceeds compilation time savings. GitHub has a 10 GB total cache limit.
+
+**Prevention:**
+1. Use `Swatinem/rust-cache@v2` — handles key construction, artifact cleanup, workspace crate exclusion
+2. Set `CARGO_INCREMENTAL: "0"` — incremental artifacts are not reusable across runners
+3. For a stdlib-only project, measure actual timing after 10 runs; full rebuild may be faster than bloated cache restore
+
+**Phase:** CI pipeline phase — configure caching correctly from the start.
 
 ---
 
-### Pitfall 6: Missing or Wrong `Content-Length` Breaks HTTP/1.1 Compliance
+### Pitfall 8: Required Status Check Not in Branch Protection Autocomplete
 
-**What goes wrong:**
-HTTP/1.1 requires `Content-Length` for responses with a body when transfer-encoding is
-not chunked (RFC 9112 §6.3). Without it, the client does not know where the response
-body ends. Browsers typically buffer until the connection closes, which works for
-HTTP/1.0-style close-after-response but introduces latency and prevents any future
-keep-alive behavior. Some clients (curl, test harnesses) will report a protocol error.
+**What goes wrong:** The autocomplete only shows checks that have run at least once. If you configure branch protection before CI has ever run, the dropdown is empty — manually typing the job name risks a typo.
 
-The `Content-Length` must be the byte length of the body (`Vec<u8>::len()`), not the
-character count of a string. For a UTF-8 HTML file, these differ when the file contains
-multi-byte characters.
+**Prevention:**
+1. Push a commit to a feature branch to trigger CI
+2. Confirm the job ran successfully and appears in the commit's "Checks" tab
+3. Only then configure branch protection — use autocomplete, not manual typing
 
-**Why it happens:**
-Developers use `String::len()` instead of `as_bytes().len()` or `Vec<u8>::len()`.
-Or they forget to set `Content-Length` at all in convenience constructors.
-
-**Prevention (pure-Rust, no deps):**
-- The `Response::set_body()` method should automatically set `Content-Length`:
-  ```rust
-  pub fn set_body(&mut self, body: Vec<u8>) {
-      self.set_header("Content-Length", body.len().to_string());
-      self.body = body;
-  }
-  ```
-- Never compute `Content-Length` from a `String`. Always use the serialized byte length.
-- In `to_bytes()`, assert that `Content-Length` is present when body is non-empty, or
-  auto-compute it as a safety net (with a debug assertion).
-
-**Warning signs:**
-- `Content-Length` set from `string.len()` rather than `bytes.len()`.
-- Convenience constructors that set a string body without setting `Content-Length`.
-- curl reporting `curl: (18) transfer closed with outstanding read data remaining`.
-
-**Phase:** Phase 2 (Response struct) — build it in correctly from the start.
+**Phase:** Branch protection phase — always after first CI run.
 
 ---
 
-### Pitfall 7: `Content-Type` Missing `charset=utf-8` for Text Responses
+### Pitfall 9: GoDaddy Default TTL Delays Testing by Hours
 
-**What goes wrong:**
-Without `; charset=utf-8` in the `Content-Type` header for text types, browsers may
-mis-detect the encoding of HTML files. RFC 9110 §8.3 allows content negotiation, but
-for a static file server serving known-UTF-8 files, always declaring the charset
-prevents browser rendering bugs. More critically, `text/html` without charset causes
-some security scanners to flag XSS risks (charset sniffing attacks).
+**What goes wrong:** GoDaddy default TTL is 600-3600 seconds. Some ISPs ignore TTL and cache for 24-48 hours. After pointing the domain to EC2, `curl http://ptodd.org` returns `Connection refused` — but it's DNS propagation, not EC2 failure.
 
-**Why it happens:**
-MIME type tables list `text/html` without the charset parameter. It is easy to copy
-incomplete MIME type strings.
+Secondary: using CNAME for the apex domain `@`. DNS spec (RFC 1912) prohibits CNAME at zone apex. GoDaddy correctly rejects it.
 
-**Prevention (pure-Rust, no deps):**
-Include `; charset=utf-8` in the MIME type string for all `text/*` types:
-```rust
-"html" | "htm" => "text/html; charset=utf-8",
-"css"          => "text/css; charset=utf-8",
-"js"           => "application/javascript",  // charset not required for JS
-"txt"          => "text/plain; charset=utf-8",
+**Prevention:**
+1. Use A record (not CNAME) for `@` → Elastic IP
+2. Add CNAME `www` → `@` simultaneously
+3. Lower TTL to 300s before making changes; wait one full cycle before changing
+4. Test DNS resolution: `dig @8.8.8.8 ptodd.org A` (bypasses ISP cache)
+5. Use `https://dnschecker.org` to verify propagation across multiple resolvers
+
+**Detection:**
+- `dig @8.8.8.8 ptodd.org` returns new IP but `curl http://ptodd.org` still hits old IP — ISP cache
+- GoDaddy rejects CNAME on `@` — use A record instead
+
+**Phase:** DNS configuration phase — allow 1 hour after change before debugging.
+
+---
+
+### Pitfall 10: GitHub Release Asset Upload Fails with 403
+
+**What goes wrong:** CD workflow creates a GitHub Release and uploads the binary. Step fails with HTTP 403. The `GITHUB_TOKEN` has default read-only permissions on new repositories.
+
+Secondary: using `actions/upload-artifact@v3` — deprecated January 30, 2025.
+
+**Prevention:**
+```yaml
+jobs:
+  deploy:
+    permissions:
+      contents: write    # Required for release asset upload
 ```
+Use `softprops/action-gh-release@v2` (not v1), `actions/upload-artifact@v4` (not v3).
 
-**Warning signs:**
-- MIME map with `"text/html"` (no charset).
-- Browser showing a question mark or mojibake for a UTF-8 HTML file with non-ASCII content.
+**Detection:**
+- Workflow fails with `HTTP 403 Forbidden` at asset upload
+- GitHub release exists but shows "0 assets"
 
-**Phase:** Phase 5 (StaticFileHandler/MIME detection).
+**Phase:** CD pipeline phase — set permissions before writing the release step.
 
 ---
 
-### Pitfall 8: `Date` Header Missing from Responses
+### Pitfall 11: No Elastic IP — EC2 Public IP Changes on Stop/Start
 
-**What goes wrong:**
-RFC 9110 §6.6.1 requires an origin server to send a `Date` header in all responses
-except 1xx, 204, and 304. Browsers and CDNs use `Date` for caching, request/response
-correlation, and RFC compliance checks. Without it, caching proxies may misbehave, and
-some strict HTTP test suites will fail.
+**What goes wrong:** EC2 public IP is used in the DNS A record. Instance is stopped for maintenance. It gets a new public IP. DNS record is stale. `ptodd.org` goes down until the A record is manually updated and DNS re-propagates.
 
-The project already has a `DateTime` struct — this is a wiring problem, not a new
-implementation problem.
+**Prevention:** Allocate an Elastic IP as the very first infrastructure step. Everything else depends on it being stable.
 
-**Why it happens:**
-The `Date` header is added to a list of "do later" items. The server works without it
-because browsers tolerate its absence.
+**Detection:**
+- `ptodd.org` resolves to old IP after instance restart
+- SSH from CD pipeline fails with `Host key verification failed` (different IP)
 
-**Prevention (pure-Rust, no deps):**
-Add `Date` in `Response::new()` or in a `Response::standard_headers()` helper that
-all response constructors call:
-```rust
-pub fn new(status: u16, reason: &'static str) -> Self {
-    let mut r = Response { status, reason, headers: Vec::new(), body: Vec::new() };
-    r.set_header("Date", DateTime::now().to_http_date());
-    r.set_header("Server", "ptodd/0.1");
-    r
-}
+**Phase:** AWS infrastructure phase — Elastic IP before anything else.
+
+---
+
+### Pitfall 12: `systemd` Unit File Missing `--root` Argument
+
+**What goes wrong:** `ExecStart=/usr/local/bin/kiss-server` without `--root`. Server starts, immediately exits with error, systemd marks it `failed`. After rapid restart failures, systemd applies rate limit and stops retrying.
+
+**Prevention:**
+```ini
+ExecStart=/usr/local/bin/kiss-server --root /var/www/ptodd.org --port 8080
 ```
+Write the unit file and test it manually before automating with CD.
 
-This ensures `Date` is never forgotten on any response path.
+**Detection:**
+- `systemctl status kiss-server` shows `failed`
+- `journalctl -u kiss-server -n 10` shows `--root is required` or `No such file or directory`
 
-**Warning signs:**
-- `curl -I` output with no `Date:` header.
-- `Response::new()` that sets no default headers.
-
-**Phase:** Phase 2 (Response struct).
-
----
-
-### Pitfall 9: Serving Directories as Files Returns Garbage or Panics
-
-**What goes wrong:**
-A client requests `GET /images/ HTTP/1.1` (a directory, not a file). `fs::read()` on a
-directory returns `Ok` on some platforms with an empty or garbage result, and
-`Err(IsADirectory)` on others (Linux returns `EISDIR`). If the error is not handled, the
-server either panics or returns a 200 with an empty body. A 404 or 405 is correct.
-
-**Why it happens:**
-`StaticFileHandler` is only tested with file paths. Directory paths are an edge case.
-
-**Consequences:**
-Undefined response for directory requests; potential panic on platforms where `fs::read()`
-does not return `IsADirectory`.
-
-**Prevention (pure-Rust, no deps):**
-Check `fs::metadata()` before reading:
-```rust
-let meta = match fs::metadata(&file_canon) {
-    Ok(m) => m,
-    Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Response::not_found()),
-    Err(e) => return Err(e.into()),
-};
-
-if meta.is_dir() {
-    return Ok(Response::not_found());  // 404; no directory listing
-}
-
-let body = fs::read(&file_canon)?;
-```
-
-This also gives a natural extension point if directory index files (`index.html`) are
-added later: check for `file_canon.join("index.html")` before returning 404.
-
-**Warning signs:**
-- `StaticFileHandler` that calls `fs::read()` without checking `is_dir()` first.
-- No test with a request for a directory path.
-
-**Phase:** Phase 5 (StaticFileHandler).
-
----
-
-### Pitfall 10: `PathBuf::join()` Discards the Root on Absolute Input
-
-**What goes wrong:**
-This is a Rust-specific behavior documented in `std::path::PathBuf::push()`:
-"If pushed path is absolute, it replaces the entire PathBuf." Since `join()` uses
-`push()` internally, `PathBuf::from("/var/www").join("/etc/passwd")` produces
-`PathBuf::from("/etc/passwd")`, not `/var/www/etc/passwd`.
-
-A client sends `GET /etc/passwd HTTP/1.1`. After percent-decoding, the path is
-`/etc/passwd`. Passed directly to `root.join("/etc/passwd")`, the root is discarded.
-Even if `canonicalize()` and `starts_with()` checks are in place, they run against
-`/etc/passwd` directly.
-
-**Why it happens:**
-The behavior is documented but counterintuitive. Developers from other languages expect
-`join` to append, not replace on absolute paths.
-
-**Consequences:**
-The `starts_with(root)` check will fail and return 403/404, which is safe, but only
-because the check exists. If the check is ever bypassed or reordered, this becomes a
-direct path traversal.
-
-**Prevention (pure-Rust, no deps):**
-Always strip the leading `/` from the URL-decoded path before calling `join()`:
-```rust
-let decoded = request.target.decoded_path()?;
-let relative = decoded.trim_start_matches('/');
-let full_path = self.root.join(relative);
-```
-
-This converts an absolute decoded path into a relative one that `join()` will append
-to the root correctly. Document this step with a comment explaining the `join()` behavior.
-
-**Warning signs:**
-- `root.join(decoded_path)` where `decoded_path` still has a leading `/`.
-- A test with `GET /etc/passwd` that returns 200 instead of 403/404.
-
-**Phase:** Phase 5 (StaticFileHandler) — defense in depth alongside Pitfall 1.
-
----
-
-### Pitfall 11: Response `to_bytes()` Uses `\n` Instead of `\r\n`
-
-**What goes wrong:**
-HTTP/1.1 requires `\r\n` (CRLF) as the line terminator for the status line and all
-headers (RFC 9112 §2.2). Using `\n` (LF only) works with lenient clients like browsers
-but fails with strict clients, load balancers, and RFC-compliance test suites.
-
-The `\r\n` after the last header and the blank `\r\n` that separates headers from the
-body are especially easy to get wrong — one missing `\r\n` causes the client to treat
-the body as part of the headers.
-
-**Why it happens:**
-Rust string literals use `\n` by default. It is easy to write `format!("{name}: {value}\n")`
-instead of `format!("{name}: {value}\r\n")`.
-
-**Prevention (pure-Rust, no deps):**
-Define a constant and test the raw bytes:
-```rust
-const CRLF: &[u8] = b"\r\n";
-
-fn to_bytes(&self) -> Vec<u8> {
-    let mut out = Vec::new();
-    // Status line
-    out.extend_from_slice(
-        format!("HTTP/1.1 {} {}", self.status, self.reason).as_bytes()
-    );
-    out.extend_from_slice(CRLF);
-    // Headers
-    for (name, value) in &self.headers {
-        out.extend_from_slice(format!("{}: {}", name, value).as_bytes());
-        out.extend_from_slice(CRLF);
-    }
-    // Blank line
-    out.extend_from_slice(CRLF);
-    // Body
-    out.extend_from_slice(&self.body);
-    out
-}
-```
-
-Write a unit test that inspects `to_bytes()` output at the byte level to verify `\r\n`.
-
-**Warning signs:**
-- `format!` with `\n` in response serialization code.
-- curl showing truncated or merged headers and body.
-
-**Phase:** Phase 2 (Response struct).
-
----
-
-### Pitfall 12: Percent-Decode Before Routing, Not After
-
-**What goes wrong:**
-If the router compares percent-encoded paths for matching (`/images%2Flogo.png` vs
-`/images/logo.png`), routes will fail to match for encoded requests. Conversely, if the
-router decodes before matching and a route pattern contains an encoded character, the
-match will be inconsistent.
-
-Worse: if routing is done on the decoded path, then the decoded path is passed to the
-filesystem handler without re-checking for `..` or absolute path components that the
-decode may have introduced.
-
-**Why it happens:**
-The decode step is applied inconsistently — sometimes before routing, sometimes before
-filesystem resolution, sometimes both.
-
-**Prevention (pure-Rust, no deps):**
-Define a clear two-stage pipeline:
-1. **Router matching uses the raw (encoded) path.** Route patterns are written with the
-   same encoding as expected incoming requests (typically no encoding in patterns).
-2. **File handlers decode the path** using `Url::decoded_path()` immediately before
-   filesystem resolution, and validate the decoded result before any `join()` call.
-
-Never pass a decoded path to the router for matching. Never pass an encoded path to
-the filesystem. Make this explicit in the `Handler` trait documentation.
-
-**Warning signs:**
-- Calling `decoded_path()` in `Router::dispatch()` before calling the handler.
-- A handler that receives an already-decoded path via the `Request` struct.
-- Router patterns that contain `%2F` or other encoded characters.
-
-**Phase:** Phase 4 (URL methods) and Phase 5 (StaticFileHandler) — the decode contract
-must be decided when `Url::decoded_path()` is implemented.
+**Phase:** EC2 service setup phase — unit file and deploy script written and tested together.
 
 ---
 
 ## Minor Pitfalls
 
-Issues that are annoying but do not cause security or correctness failures.
+---
+
+### Pitfall 13: `cargo clippy` Fails on New Lint in Updated Stable Toolchain
+
+**What goes wrong:** CI runs `cargo clippy -- -D warnings`. Codebase is lint-free locally. A newer stable toolchain on the CI runner introduces a new lint that the local toolchain didn't have. CI fails, blocking all PRs.
+
+**Prevention:** Add `rust-toolchain.toml` to the repo root pinning a specific stable version. Accept toolchain updates as explicit maintenance tasks.
+
+**Phase:** CI pipeline phase — add `rust-toolchain.toml` with the first CI setup.
 
 ---
 
-### Pitfall 13: `unsafe { unwrap_unchecked() }` in DateTime
+### Pitfall 14: `www.ptodd.org` Unreachable — Missing CNAME
 
-**What goes wrong:**
-`std::time::SystemTime::duration_since(UNIX_EPOCH)` returns `Result<Duration, SystemTimeError>`.
-The `SystemTimeError` occurs when the system clock is set to before the Unix epoch (Jan 1, 1970).
-Using `unsafe { unwrap_unchecked() }` instead of proper error handling is undefined behavior
-if the condition is ever false — even on systems where it would normally be safe.
+**What goes wrong:** A record set for `@` (ptodd.org). Visitors typing `www.ptodd.org` get `NXDOMAIN` — no DNS record for `www`.
 
-**Prevention (pure-Rust, no deps):**
-Replace with a safe fallback:
-```rust
-let duration = SystemTime::now()
-    .duration_since(UNIX_EPOCH)
-    .unwrap_or(Duration::ZERO);  // Fallback: epoch time if clock is broken
+**Prevention:** Add `www CNAME → @` at the same time as the A record. Test both:
+```bash
+curl http://ptodd.org/
+curl http://www.ptodd.org/
 ```
 
-Or propagate the error if `DateTime::now()` returns `Result<DateTime>`.
-
-**Warning signs:**
-- Any `unsafe { ... unwrap_unchecked() ... }` in `src/time/mod.rs`.
-
-**Phase:** Phase 1 (bug fixes).
+**Phase:** DNS configuration phase.
 
 ---
 
-### Pitfall 14: Double-Panic in `ThreadPool::drop()`
+## Phase-Specific Warning Summary
 
-**What goes wrong:**
-`Drop` implementations must never panic. If `thread.join()` returns `Err` (because the
-thread panicked), calling `.expect()` in `Drop` causes a second panic. If the `Drop` is
-triggered during unwinding from the first panic, Rust aborts the process rather than
-propagating either panic.
+| Phase Topic | Key Pitfall | Mitigation |
+|-------------|-------------|------------|
+| CI workflow | Cargo cache bloat | `Swatinem/rust-cache@v2` + `CARGO_INCREMENTAL=0` |
+| CI workflow | Toolchain version drift | Pin in `rust-toolchain.toml` |
+| Branch protection | Check name mismatch → lockout | Run CI once first; use autocomplete; no admin bypass disable |
+| Branch protection | Check not in autocomplete | Push commit → wait for run → then configure |
+| AWS infrastructure | EC2 arm64 arch mismatch | Use t3.micro (x86_64) to match CI runner |
+| AWS infrastructure | Elastic IP not allocated | Allocate first — DNS depends on it |
+| AWS infrastructure | SSH open to 0.0.0.0/0 | Restrict to your IP `/32` |
+| EC2 service setup | Wrong port / missing --root in unit file | Write unit file + test manually before CD |
+| EC2 service setup | In-place SCP race condition | Atomic: SCP to /tmp, stop, mv, start |
+| CD pipeline | `systemctl restart` exits 0 on crash | Always follow with `systemctl is-active` check |
+| CD pipeline | SSH key CRLF rejected | Test with `ssh-keygen -y -f` before storing as secret |
+| CD pipeline | GitHub Release 403 | Add `permissions: contents: write` to job |
+| DNS configuration | TTL delays testing | Lower TTL to 300s before change; test with `dig @8.8.8.8` |
+| DNS configuration | CNAME at apex rejected | Use A record for `@`; CNAME only for `www` |
+| DNS configuration | `www` unreachable | Add CNAME `www → @` with the A record |
 
-**Prevention (pure-Rust, no deps):**
-```rust
-impl Drop for ThreadPool {
-    fn drop(&mut self) {
-        // ... send shutdown signal ...
-        for worker in &mut self.workers {
-            if let Some(thread) = worker.thread.take() {
-                let _ = thread.join();  // Ignore join errors; thread already panicked
-            }
-        }
-    }
-}
+## Critical Cross-Phase Integration
+
+### The "Green CI, Broken Prod" Pattern
+
+The most dangerous failure mode: CI reports success, CD exits 0, service is not running the new binary.
+
+Root causes:
+- `systemctl restart` exits 0 even on immediate crash
+- SCP exits 0 even if binary is wrong architecture
+- Deploy script checks wrong signal
+
+**The mandatory safeguard** (add to every CD workflow):
+```bash
+systemctl is-active kiss-server || (journalctl -u kiss-server -n 30 && exit 1)
 ```
 
-**Warning signs:**
-- `.expect()` or `.unwrap()` on `thread.join()` in any `Drop` implementation.
+### Architecture Decision Matrix
 
-**Phase:** Phase 1 (bug fixes).
-
----
-
-### Pitfall 15: `MIME` Type `application/javascript` vs `text/javascript`
-
-**What goes wrong:**
-The official IANA-registered MIME type for JavaScript is `text/javascript` (as of
-RFC 4329, superseded by RFC 9239 in 2022). `application/javascript` is deprecated but
-still widely accepted. Using `application/javascript` will produce warnings in some
-strict browsers (Firefox devtools) and may cause Content Security Policy issues.
-
-**Prevention (pure-Rust, no deps):**
-Use `text/javascript` in the MIME map:
-```rust
-"js" | "mjs" => "text/javascript",
-```
-
-**Warning signs:**
-- `"application/javascript"` in the MIME type map.
-- Firefox console warnings about MIME type mismatch.
-
-**Phase:** Phase 5 (MIME detection).
+| Environment | Architecture | Notes |
+|-------------|-------------|-------|
+| macOS dev (M-series) | arm64 | Binary never deployed from here |
+| GitHub Actions `ubuntu-latest` | x86_64 | This is what gets deployed to EC2 |
+| EC2 `t3.micro` | x86_64 | Matches runner — no cross-compilation |
+| EC2 `t4g.micro` | arm64 | Requires cross-compilation — avoid for v1.1 |
 
 ---
-
-### Pitfall 16: Year/Month Calculation Loops Produce Wrong `Date` Header Near Year Boundaries
-
-**What goes wrong:**
-The existing `DateTime::now()` iterates from 1970 to compute the current year. This loop
-is correct for most dates but is sensitive to off-by-one errors in leap year handling
-near December 31 / January 1 boundaries. If the `Date` header value is wrong (e.g., one
-day off), HTTP caches may incorrectly cache or reject responses. The existing CONCERNS.md
-identifies this as a performance issue; it is also a correctness risk.
-
-**Prevention (pure-Rust, no deps):**
-Replace the loops with the standard astronomical formula:
-- Years since epoch: use `days / 365.2425` as an initial estimate, then correct.
-- Or use the proleptic Gregorian algorithm (Zeller's formula / Julian day number).
-
-Add tests for: Dec 31, Jan 1, Feb 28, Feb 29 on leap years, and Dec 31 on year preceding a leap year.
-
-**Warning signs:**
-- A loop in `src/time/mod.rs` that iterates from 1970 to the current year.
-- Absence of tests for dates near year and month boundaries.
-
-**Phase:** Phase 1 (bug fixes / DateTime arithmetic).
-
----
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Response struct | Missing or wrong `\r\n` terminators (Pitfall 11) | Unit-test `to_bytes()` at byte level |
-| Response struct | `Content-Length` computed from string not bytes (Pitfall 6) | Use `Vec<u8>::len()` always; set in `set_body()` |
-| Response struct | `Date` header missing (Pitfall 8) | Add in `Response::new()` |
-| Bug fixes | Worker panic cascades (Pitfall 3) | Handle `PoisonError` in worker loop |
-| Bug fixes | Non-UTF-8 panics (Pitfall 5) | Propagate `?` on `lines()` |
-| Bug fixes | Unbounded header read (Pitfall 4) | Add `take(MAX_HEADERS)` |
-| Bug fixes | `unsafe unwrap_unchecked` (Pitfall 13) | Replace with `unwrap_or` |
-| Bug fixes | `Drop` double-panic (Pitfall 14) | Use `let _ = thread.join()` |
-| URL methods | Decode contract (Pitfall 12) | Decode in handler, not router |
-| StaticFileHandler | Path traversal via `..` (Pitfall 1) | `canonicalize()` + `starts_with()` |
-| StaticFileHandler | `canonicalize()` on missing file (Pitfall 2) | Check `NotFound` error; component-level `..` rejection |
-| StaticFileHandler | Absolute URL path discards root (Pitfall 10) | `trim_start_matches('/')` before `join()` |
-| StaticFileHandler | Serving directories (Pitfall 9) | `fs::metadata().is_dir()` check |
-| StaticFileHandler | MIME charset missing (Pitfall 7) | Include `; charset=utf-8` for text/* |
-| MIME detection | Deprecated `application/javascript` (Pitfall 15) | Use `text/javascript` |
-| DateTime | Boundary bugs in `Date` header (Pitfall 16) | Replace loops with calendar arithmetic |
-
----
-
-## Security Pitfalls Summary
-
-The following pitfalls are security-relevant and must be treated as blockers, not
-polish:
-
-| # | Pitfall | Severity | Phase to Fix |
-|---|---------|----------|--------------|
-| 1 | Path traversal via `..` after percent-decode | Critical | Phase 5 |
-| 2 | `canonicalize()` failure bypasses traversal check | Critical | Phase 5 |
-| 4 | Unbounded header read (DoS) | High | Phase 1 |
-| 5 | Non-UTF-8 panics worker (DoS via cascade) | High | Phase 1 |
-| 10 | `PathBuf::join()` discards root on absolute path | High | Phase 5 |
-| 3 | Mutex poison cascades (DoS amplifier) | Medium | Phase 1 |
-
-Pitfalls 1, 2, and 10 must all be present simultaneously in `StaticFileHandler` for
-the path traversal defense to be robust. No single check is sufficient alone.
-
----
-
-## Sources
-
-All findings are based on:
-
-- RFC 9110 (HTTP Semantics), RFC 9112 (HTTP/1.1 Message Syntax), RFC 3986 (URI Generic Syntax) — specification requirements
-- RFC 9239 (Updates to ECMAScript Media Types) — `text/javascript` IANA registration
-- Rust `std::path::PathBuf` documentation — `join()` absolute-path replacement behavior
-- Rust `std::fs::canonicalize()` documentation — `realpath(3)` requirement for existing path
-- Rust `std::sync::Mutex` documentation — `PoisonError` behavior and recovery
-- CONCERNS.md — existing codebase analysis (2026-02-28)
-- ARCHITECTURE.md — planned component structure (2026-02-28)
-
-Confidence: HIGH for Pitfalls 1–14 (all grounded in Rust stdlib behavior and HTTP RFCs).
-Confidence: MEDIUM for Pitfall 15 (MIME type registry change, widely adopted but
-implementation details vary by client).
-
----
-
-*Research completed: 2026-02-28*
+*Pitfalls research for: CI/CD ops & deployment, AWS EC2, GoDaddy DNS (v1.1)*
+*Researched: 2026-03-10*

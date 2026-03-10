@@ -1,395 +1,347 @@
-# Architecture Research: Router + Static File Handler
+# Architecture Research
 
-**Research Date:** 2026-02-28
-**Scope:** Extending the existing pure-Rust HTTP/1.1 server with a Router, Handler trait, and static file serving — no external dependencies beyond stdlib + `log`.
+**Domain:** CI/CD pipeline, AWS EC2 deployment, DNS routing for Rust binary
+**Researched:** 2026-03-10
+**Confidence:** HIGH
 
----
-
-## Question
-
-How should a Router and static file handler be structured in a pure-Rust HTTP server? How do Request → Router → Handler → Response integrate? What is the right abstraction for handlers that works for both static files and future REST endpoints?
-
----
-
-## Summary
-
-The existing server hardcodes routing inside `handle_connection()` with a `match` on the raw request line string and constructs HTTP responses inline as format strings. Both behaviors must be replaced by proper abstractions before adding any real features.
-
-The path forward is:
-
-1. Build a `Response` struct first — everything else produces one.
-2. Define a `Handler` trait that takes a `&Request` and returns a `Result<Response>`.
-3. Build a `Router` that maps `(method, path pattern)` to a boxed `Handler`.
-4. Implement `StaticFileHandler` as the first concrete handler — it satisfies the same `Handler` trait that future REST handlers will use.
-5. Wire `handle_connection()` to call `router.dispatch(&request)` and write the resulting `Response` to the stream.
-
-This order ensures every new piece has something concrete to build on, and the `Handler` trait is the single extension point for both static files and REST.
-
----
-
-## Component Boundaries
-
-### Response (`src/server/response.rs`)
-
-The `Response` struct replaces the inline format string in `handle_connection()`. It must own:
-
-- A status code (`u16`) and reason phrase (`&'static str` or `String`)
-- A header map (ordered `Vec<(String, String)>` is fine — no `HashMap` needed for HTTP/1.1 where header order can matter for debugging)
-- A body (`Vec<u8>` — not `String`, so binary files work correctly)
-
-It needs a single method that serializes the full response to bytes for writing to the stream. It also needs convenience constructors for common cases: `Response::ok()`, `Response::not_found()`, `Response::internal_error()`.
-
-Example shape:
-
-```rust
-// src/server/response.rs
-pub struct Response {
-    pub status: u16,
-    pub reason: &'static str,
-    pub headers: Vec<(String, String)>,
-    pub body: Vec<u8>,
-}
-
-impl Response {
-    pub fn new(status: u16, reason: &'static str) -> Self { ... }
-    pub fn set_header(&mut self, name: impl Into<String>, value: impl Into<String>) { ... }
-    pub fn set_body(&mut self, body: Vec<u8>) { ... }
-    pub fn to_bytes(&self) -> Vec<u8> { ... }
-}
-```
-
-The `to_bytes()` method writes the status line, then each header as `Name: Value\r\n`, then `\r\n`, then the body bytes. `Content-Length` must always be set before calling `to_bytes()` — the handler is responsible for this, not `to_bytes()` itself (keep it a dumb serializer).
-
-### Handler Trait (`src/server/handler.rs`)
-
-The `Handler` trait is the central extension point. Its contract is: given a parsed `Request`, produce a `Response` or a `server::Error`.
-
-```rust
-// src/server/handler.rs
-pub trait Handler: Send + Sync {
-    fn handle(&self, request: &Request) -> Result<Response>;
-}
-```
-
-`Send + Sync` bounds are required because handlers are stored in the `Router` which is shared across threads (via `Arc`). Handlers must be stateless or use interior mutability; the static file handler is naturally stateless (it reads from disk on every request).
-
-Using `&self` (shared reference) rather than `&mut self` enforces this: the router hands the same handler to multiple threads concurrently. Rust's type system enforces thread safety here with no runtime cost.
-
-`Box<dyn Handler>` is the storage type — no generics needed in the router, and this avoids monomorphization complexity for a project of this scale.
-
-### Router (`src/server/router.rs`)
-
-The `Router` holds a list of route entries, each pairing a `(RequestMethod, path pattern)` with a `Box<dyn Handler>`. Dispatch walks the list in registration order and calls the first matching handler.
-
-For this project, exact string matching on the path is sufficient for now. A pattern type can be added later (regex, prefix, wildcard) without changing the `Handler` trait.
-
-```rust
-// src/server/router.rs
-pub struct Router {
-    routes: Vec<Route>,
-    fallback: Box<dyn Handler>,
-}
-
-struct Route {
-    method: RequestMethod,
-    pattern: String,      // exact match for now
-    handler: Box<dyn Handler>,
-}
-
-impl Router {
-    pub fn new(fallback: Box<dyn Handler>) -> Self { ... }
-    pub fn add(&mut self, method: RequestMethod, pattern: impl Into<String>, handler: Box<dyn Handler>) { ... }
-    pub fn dispatch(&self, request: &Request) -> Result<Response> { ... }
-}
-```
-
-The fallback handler is what gets called when no route matches — this is where `NotFoundHandler` lives, which always returns a 404. Having fallback as a `Box<dyn Handler>` (rather than a special case) means it participates in the same interface.
-
-The `dispatch()` method:
-
-1. Iterates `routes` in order.
-2. Compares `route.method` with `request.method` and `route.pattern` with `request.target.path()`.
-3. On first match, calls `route.handler.handle(request)` and returns.
-4. If no route matches, calls `self.fallback.handle(request)`.
-
-The `Router` should be wrapped in `Arc<Router>` at the `Server` level so it can be cloned into each thread's closure cheaply.
-
-### Static File Handler (`src/server/static_files.rs`)
-
-`StaticFileHandler` is a concrete `Handler` implementation. It holds the server root directory as a `PathBuf` and, on each request, resolves the requested path against the root, validates it, reads the file, and returns a `Response` with the appropriate `Content-Type` and `Content-Length`.
-
-```rust
-// src/server/static_files.rs
-pub struct StaticFileHandler {
-    root: PathBuf,
-}
-
-impl StaticFileHandler {
-    pub fn new(root: impl Into<PathBuf>) -> Self { ... }
-}
-
-impl Handler for StaticFileHandler {
-    fn handle(&self, request: &Request) -> Result<Response> { ... }
-}
-```
-
-Key responsibilities of `handle()`:
-
-1. Extract the decoded path from `request.target` (URL decode percent-encoded segments).
-2. Resolve the path against `self.root` using `root.join(decoded_path)`.
-3. Call `canonicalize()` on the resolved path and verify the result starts with `self.root.canonicalize()` — this is the path traversal prevention check.
-4. Read the file with `fs::read()` (returns `Vec<u8>`, correct for binary).
-5. Detect MIME type from the file extension.
-6. Build and return a `Response` with status 200, `Content-Type`, `Content-Length`, and the body.
-
-If the file does not exist, return a 404 response (not an `Err` — file-not-found is a handled case, not a server error). If the path resolves outside the root, return 403. If reading fails for other reasons, propagate the `Err`.
-
-### MIME Type Detection (`src/server/mime.rs` or inline in `static_files.rs`)
-
-A pure function mapping file extension to MIME type string. No external crates needed — a `match` on `Path::extension()` covers all required types:
-
-```rust
-fn mime_for_extension(ext: &str) -> &'static str {
-    match ext {
-        "html" | "htm" => "text/html; charset=utf-8",
-        "css"          => "text/css; charset=utf-8",
-        "js"           => "application/javascript",
-        "json"         => "application/json",
-        "wasm"         => "application/wasm",
-        "png"          => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif"          => "image/gif",
-        "svg"          => "image/svg+xml",
-        "ico"          => "image/x-icon",
-        "txt"          => "text/plain; charset=utf-8",
-        _              => "application/octet-stream",
-    }
-}
-```
-
-This can live in `static_files.rs` as a private function or in a small `src/server/mime.rs` submodule if it grows.
-
-### Not Found Handler (inline or `src/server/handler.rs`)
-
-A trivial struct that always returns 404. Used as the router's fallback.
-
-```rust
-pub struct NotFoundHandler;
-
-impl Handler for NotFoundHandler {
-    fn handle(&self, _request: &Request) -> Result<Response> {
-        let mut r = Response::new(404, "Not Found");
-        let body = b"404 Not Found".to_vec();
-        r.set_header("Content-Length", body.len().to_string());
-        r.set_header("Content-Type", "text/plain; charset=utf-8");
-        r.set_body(body);
-        Ok(r)
-    }
-}
-```
-
-This replaces the hardcoded `404.html` file path in the current `handle_connection()`.
-
----
-
-## Data Flow: Request to Response
+## System Overview
 
 ```
-TcpStream
-    |
-    v
-handle_connection()
-    |
-    +-- BufReader reads HTTP headers (lines until blank line)
-    |
-    v
-Request::parse(&raw_lines)
-    |   - validates HTTP/1.1
-    |   - parses method via RequestMethod::try_from()
-    |   - parses target via Url::from()
-    |   -> Result<Request>
-    |
-    v
-router.dispatch(&request)           // Arc<Router> shared across threads
-    |
-    +-- iterates routes in order
-    |   - matches method + path pattern
-    |   - calls matched handler.handle(&request)
-    |
-    +-- if no route matches: fallback.handle(&request)
-    |
-    v
-Result<Response>
-    |
-    +-- Err: construct a 500 Internal Server Error Response
-    |
-    v
-response.to_bytes()
-    |
-    v
-stream.write_all(&bytes)
-    |
-    v
-Connection closed (HTTP/1.1 without Keep-Alive)
+┌─────────────────────────────────────────────────────────────┐
+│                GitHub (ptdecker/kiss-server)                 │
+│                                                              │
+│  branches: main (protected), prod (CD trigger), gsd/*       │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              GitHub Actions                           │   │
+│  │  ci.yml  — runs on push/PR to main                   │   │
+│  │            cargo fmt + clippy + test                  │   │
+│  │            posts status check (required for merge)    │   │
+│  │                                                       │   │
+│  │  cd.yml  — runs on push to prod                      │   │
+│  │            cargo build --release                      │   │
+│  │            SCP binary → EC2                          │   │
+│  │            SSH: stop → mv → start                    │   │
+│  │            systemctl is-active (health check)        │   │
+│  │            Create GitHub Release + attach binary      │   │
+│  └─────────────────────────┬────────────────────────────┘   │
+│                            │ SSH/SCP (GitHub Secrets)        │
+│  Releases tab:             │                                  │
+│  prod-{sha} tag +          │                                  │
+│  kiss-server binary        │                                  │
+└────────────────────────────┼────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         AWS                                  │
+│                                                              │
+│  Elastic IP (static) ◄──── Security Group                   │
+│       │                    • port 80/TCP: 0.0.0.0/0         │
+│       │                    • port 22/TCP: your-ip/32         │
+│       │                                                      │
+│       ▼                                                      │
+│  EC2 t3.micro (Amazon Linux 2023, x86_64)                   │
+│  ├── iptables PREROUTING: port 80 → 8080                    │
+│  ├── /usr/local/bin/kiss-server (deployed binary)           │
+│  ├── /var/www/ptodd.org/ (static site root)                 │
+│  └── systemd: kiss-server.service                           │
+│       User=ec2-user                                          │
+│       ExecStart=kiss-server --root /var/www/ptodd.org        │
+│                             --port 8080                      │
+│       Restart=on-failure                                     │
+└────────────────────────────┬────────────────────────────────┘
+                             │ Elastic IP
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       GoDaddy DNS                            │
+│  @ A record     → [Elastic IP]                              │
+│  www CNAME      → @                                         │
+│  TTL: 600s (setup) → 3600s (stable)                        │
+└────────────────────────────┬────────────────────────────────┘
+                             │ ptodd.org resolves to Elastic IP
+                             ▼
+                      Browser → ptodd.org
 ```
 
-All error handling uses `Result<Response>` — the `?` operator propagates `server::Error` up from `dispatch()`. The caller (`handle_connection()`) converts any `Err` into a 500 response before writing, so the stream always gets a valid HTTP response.
+## New Components
 
----
+| Component | Type | Location |
+|-----------|------|----------|
+| `.github/workflows/ci.yml` | NEW file | GitHub Actions CI workflow |
+| `.github/workflows/cd.yml` | NEW file | GitHub Actions CD workflow |
+| `rust-toolchain.toml` | NEW file | Pins Rust stable toolchain |
+| `docs/ci-cd.md` | NEW file | CI/CD documentation |
+| `README.md` | MODIFIED | Add badge, description, deployment notes |
+| `/etc/systemd/system/kiss-server.service` | NEW (on EC2) | systemd unit file |
+| `/usr/local/bin/kiss-server` | NEW (on EC2) | Deployed binary |
+| `/var/www/ptodd.org/index.html` | NEW (on EC2) | Hello World static site |
+| GitHub branch protection rule | NEW (repo setting) | Require PR + CI pass for main |
+| GitHub Secrets | NEW (repo setting) | EC2_HOST, EC2_SSH_KEY, EC2_USER |
+| AWS EC2 instance | NEW (AWS) | t3.micro, Amazon Linux 2023 |
+| AWS Elastic IP | NEW (AWS) | Static IP attached to EC2 |
+| AWS Security Group | NEW (AWS) | Ports 80 + 22 inbound |
+| GoDaddy A record `@` | NEW (DNS) | Elastic IP |
+| GoDaddy CNAME `www` | NEW (DNS) | → `@` |
 
-## Handler Trait Design for Static Files and REST
+## Architectural Patterns
 
-The `Handler` trait is intentionally minimal:
+### Pattern 1: Port Redirect (80 → 8080 via iptables)
 
-```rust
-pub trait Handler: Send + Sync {
-    fn handle(&self, request: &Request) -> Result<Response>;
-}
+**What:** kiss-server listens on port 8080. Kernel-level iptables PREROUTING rule redirects port 80 → 8080 before the packet reaches the process.
+
+**Why:** `ec2-user` cannot bind ports below 1024 without root. Alternatives rejected:
+- `CAP_NET_BIND_SERVICE`: must be re-applied after every binary replacement (CD pipeline complexity)
+- Run as root: security risk; not worth it for a file server
+- Reverse proxy (nginx): unnecessary complexity for a single binary on one instance
+
+**Setup:**
+```bash
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
+# Persist across reboots:
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+# Or on Amazon Linux 2023:
+sudo dnf install iptables-services
+sudo service iptables save
 ```
 
-This works for both use cases:
+Port 8080 does **not** need to be open in the Security Group — the redirect happens inside the instance after Security Group allows port 80.
 
-**Static files:** `StaticFileHandler::handle()` reads the filesystem. Its state (the root `PathBuf`) is set at startup and never changes. `Send + Sync` is satisfied trivially.
+### Pattern 2: Atomic Binary Replacement (stop → mv → start)
 
-**Future REST endpoints:** A REST handler might hold a `Arc<Mutex<State>>` for shared mutable data, or be a pure function on the request. Both fit `Handler`. Examples:
+**What:** CD pipeline stops the service, SCPs to a temp path, `mv`s into place (atomic on Linux), then starts the service.
 
-```rust
-// Pure function handler
-pub struct EchoHandler;
-impl Handler for EchoHandler {
-    fn handle(&self, request: &Request) -> Result<Response> {
-        // echo request info back as JSON
-    }
-}
+**Why:** SCP may truncate and rewrite the target file in-place, causing SIGBUS in the running process. `mv` on the same filesystem is atomic — the directory entry swaps instantly.
 
-// Handler with shared state
-pub struct CounterHandler {
-    count: Arc<Mutex<u64>>,
-}
-impl Handler for CounterHandler {
-    fn handle(&self, _: &Request) -> Result<Response> {
-        let mut n = self.count.lock()?;
-        *n += 1;
-        // return n as response
-    }
-}
+**CD deploy sequence:**
+```bash
+# Step 1: Copy to temp (appleboy/scp-action)
+scp target/release/kiss-server ec2-user@$HOST:/tmp/kiss-server-new
+
+# Step 2: Atomic replace (appleboy/ssh-action)
+sudo systemctl stop kiss-server
+sudo mv /tmp/kiss-server-new /usr/local/bin/kiss-server
+sudo chmod +x /usr/local/bin/kiss-server
+sudo systemctl start kiss-server
+
+# Step 3: Health check (mandatory — systemctl restart exits 0 even on crash)
+systemctl is-active kiss-server || (journalctl -u kiss-server -n 30; exit 1)
 ```
 
-The router does not know or care what the handler does — it only calls `handle()`. This is the right level of abstraction: handlers are self-contained units that map a request to a response.
+### Pattern 3: prod Branch as Deployment Gate
 
-**Why not closures?** Closures (`Box<dyn Fn(&Request) -> Result<Response> + Send + Sync>`) would also work and are more concise. The `Handler` trait is preferable here because:
+**What:** `main` accumulates milestone commits. `prod` branch is explicitly updated from `main` when ready to deploy. Push to `prod` triggers CD.
 
-- It gives the type a name, which aids error messages and documentation.
-- Struct-based handlers can hold configuration (like `StaticFileHandler`'s root).
-- A trait can have additional methods in the future (e.g., `fn can_handle(&self, request: &Request) -> bool`) without changing call sites.
-- It matches the existing codebase's pattern of named structs implementing standard traits (`Request`, `ThreadPool`, `SimpleLogger`).
+**Why:** Separates "code merged to main" from "code deployed to production". Gives explicit control over when deployments happen.
+
+**Deployment flow:**
+```bash
+# When ready to deploy:
+git checkout prod
+git merge main
+git push origin prod
+# → triggers cd.yml → deploys to EC2 → creates GitHub Release
+```
+
+## CI Workflow Structure
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on:
+  push:
+    branches: [main, 'gsd/**']
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_INCREMENTAL: "0"    # Disable incremental compilation; saves cache space
+
+jobs:
+  ci:                        # ← exact string referenced in branch protection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt -- --check
+      - name: Lint
+        run: cargo clippy -- -D warnings
+      - name: Test
+        run: cargo test
+```
+
+`CARGO_INCREMENTAL=0` prevents incremental compilation artifacts from bloating the cache across runners (they're non-reusable and grow unboundedly).
+
+## CD Workflow Structure
+
+```yaml
+# .github/workflows/cd.yml
+name: CD
+on:
+  push:
+    branches: [prod]
+
+env:
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # Required for GitHub Release asset upload
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release
+      - name: Copy binary to EC2
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "target/release/kiss-server"
+          target: "/tmp/"
+      - name: Deploy and restart service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo systemctl stop kiss-server
+            sudo mv /tmp/target/release/kiss-server /usr/local/bin/kiss-server
+            sudo chmod +x /usr/local/bin/kiss-server
+            sudo systemctl start kiss-server
+            systemctl is-active kiss-server || (journalctl -u kiss-server -n 30 && exit 1)
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "prod-${{ github.sha }}"
+          name: "Deployment ${{ github.sha }}"
+          files: target/release/kiss-server
+```
+
+## systemd Unit File
+
+```ini
+# /etc/systemd/system/kiss-server.service
+[Unit]
+Description=kiss-server HTTP/1.1 static file server
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+ExecStart=/usr/local/bin/kiss-server --root /var/www/ptodd.org --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`Restart=on-failure` (not `always`) — `always` causes restart loops on intentional stop during deployment.
+
+## Data Flows
+
+### CI Flow
+
+```
+PR opened against main
+  → GitHub triggers ci.yml
+  → ubuntu-latest runner
+  → checkout → toolchain → cache restore
+  → cargo fmt -- --check      (fails fast on formatting)
+  → cargo clippy -- -D warnings  (fails on lint)
+  → cargo test                 (83 tests)
+  → cache save
+  → status check posted to PR
+  → branch protection: blocks merge if any step failed
+```
+
+### CD Flow
+
+```
+git push origin main:prod
+  → GitHub triggers cd.yml
+  → ubuntu-latest runner (x86_64 — matches EC2 arch)
+  → checkout → toolchain → cache restore
+  → cargo build --release
+  → SCP: target/release/kiss-server → EC2:/tmp/
+  → SSH: stop → mv → chmod → start → is-active check
+  → GitHub Release: tag prod-{sha} + binary asset
+  → ptodd.org now serves new binary
+```
+
+### Live Traffic Flow
+
+```
+Browser: GET http://ptodd.org/
+  → GoDaddy DNS: ptodd.org A → [Elastic IP]
+  → AWS Security Group: port 80 allowed
+  → EC2 iptables PREROUTING: 80 → 8080
+  → kiss-server: serve /var/www/ptodd.org/index.html
+  → 200 OK, text/html
+```
+
+## Phase Build Order
+
+The dependency chain determines phase order:
+
+1. **CI workflow** — no external dependencies; enables everything else
+2. **Branch protection** — requires CI to have run at least once (check name must exist)
+3. **AWS infrastructure** — EC2, Elastic IP, Security Group (Elastic IP must exist before DNS)
+4. **EC2 service setup** — systemd unit, iptables, static site directory, Hello World content
+5. **DNS configuration** — GoDaddy A record → Elastic IP (EC2 must be responding)
+6. **CD pipeline** — requires EC2 running + GitHub Secrets + CI pipeline complete
+7. **Badge + docs + README** — requires CI workflow file to exist (badge URL)
+
+## Integration Points
+
+| Integration | Pattern | Notes |
+|-------------|---------|-------|
+| GitHub Actions → EC2 | SSH/SCP via GitHub Secrets | Secrets: EC2_HOST, EC2_SSH_KEY, EC2_USER |
+| GitHub Actions → GitHub Releases | `softprops/action-gh-release@v2` | Requires `permissions: contents: write` |
+| GoDaddy DNS → AWS | A record to Elastic IP | No Route 53 needed |
+| EC2 port 80 → 8080 | iptables PREROUTING | Inside instance; Security Group only opens 80 |
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Running kiss-server as root to bind port 80
+
+**What people do:** `sudo ExecStart=...` or `User=root` to bind port 80 directly.
+**Why it's wrong:** Unnecessary privilege; vulnerability in kiss-server gives attacker root shell.
+**Do this instead:** Run as `ec2-user`, use iptables PREROUTING redirect.
+
+### Anti-Pattern 2: Choosing EC2 arm64 (t4g) with x86_64 CI runner
+
+**What people do:** Pick the cheapest EC2 (`t4g.nano` at ~$3/mo) without checking architecture.
+**Why it's wrong:** GitHub Actions `ubuntu-latest` builds x86_64. Binary SCP succeeds silently. Service fails with `Exec format error` at start.
+**Do this instead:** Use `t3.micro` (x86_64) for this milestone. No cross-compilation.
+
+### Anti-Pattern 3: Using ephemeral EC2 public IP for DNS
+
+**What people do:** Copy EC2 public IP to GoDaddy A record without allocating Elastic IP.
+**Why it's wrong:** Public IP changes on every stop/start. DNS becomes stale immediately.
+**Do this instead:** Allocate Elastic IP first, associate with instance, use Elastic IP in DNS.
+
+### Anti-Pattern 4: In-place SCP over running binary
+
+**What people do:** `scp binary ec2:/usr/local/bin/kiss-server` directly over the running file.
+**Why it's wrong:** SCP may truncate the file in-place, causing SIGBUS in the running process.
+**Do this instead:** SCP to `/tmp/`, then `stop → mv → start`.
+
+## Sources
+
+- GitHub Actions documentation — workflow syntax, permissions, branch protection
+- AWS EC2 user guide — instance types, security groups, Elastic IP
+- Amazon Linux 2023 documentation — systemd, iptables, EOL dates
+- appleboy/scp-action and ssh-action GitHub repos
+- softprops/action-gh-release GitHub repo
 
 ---
-
-## URL Integration
-
-The existing `Url` struct in `src/url/mod.rs` currently stores only a raw path string. Before the `Router` and `StaticFileHandler` can work correctly, `Url` needs two capabilities:
-
-1. **Path accessor:** A method `fn path(&self) -> &str` that returns the path component, stripped of any query string or fragment.
-2. **Percent-decode:** A method `fn decoded_path(&self) -> Result<String>` that applies the existing `pct_decode()` logic to the path segments.
-
-The router uses `path()` for pattern matching (compare raw path strings). The static file handler uses `decoded_path()` when resolving to a filesystem path. This keeps routing fast (no allocation) and file serving correct (percent-encoded characters in filenames are handled).
-
-The `Url` module already has all the encoding/decoding logic — it just needs to be wired into the struct's public API, and the `#![allow(unused)]` override can be removed.
-
----
-
-## Integration Points with Existing Code
-
-| Existing item | How the new code connects |
-|---|---|
-| `Request` in `src/server/request.rs` | Passed as `&Request` into `Handler::handle()` and `Router::dispatch()`. No changes needed to `Request` itself. |
-| `RequestMethod` in `src/server/request.rs` | Used in `Route` struct for method matching. `Router::add()` takes a `RequestMethod`. |
-| `Url` in `src/url/mod.rs` | Needs `path()` and `decoded_path()` methods added. Router uses `path()`. Static file handler uses `decoded_path()`. |
-| `handle_connection()` in `src/server/mod.rs` | Replaces the match+format block with: `let response = router.dispatch(&request).unwrap_or_else(|_| internal_error_response()); stream.write_all(&response.to_bytes())?;` |
-| `Server` in `src/server/mod.rs` | Gains an `Arc<Router>` field. `Server::new()` (or a new `Server::with_router()`) accepts the router. The router is cloned into each thread's closure. |
-| `server::error::Error` in `src/server/error.rs` | May need a new variant (e.g., `PathTraversal`, `NotFound`) or these can remain as `Io` variants with descriptive messages. A `NotFound` variant lets the router return 404 by convention without a special type. |
-| `log` crate macros | Used throughout handler implementations for request/response logging, consistent with existing patterns. |
-
----
-
-## Build Order (Dependencies)
-
-The components have a strict dependency order. Each phase must be fully working before the next begins.
-
-### Phase 1: Response struct
-
-**Build:** `src/server/response.rs` with `Response` struct, `set_header()`, `set_body()`, `to_bytes()`, and convenience constructors.
-
-**Why first:** Every other component produces a `Response`. Nothing else can be tested without it.
-
-**Integration:** Replace the inline format string in `handle_connection()` with a `Response` constructed and serialized. No router yet — the existing match logic still runs, but now builds a `Response` instead of strings.
-
-### Phase 2: Handler trait + NotFoundHandler
-
-**Build:** `src/server/handler.rs` with the `Handler` trait and a `NotFoundHandler` struct.
-
-**Depends on:** Phase 1 (`Response`).
-
-**Why second:** The trait establishes the interface. Everything else implements it.
-
-### Phase 3: Router
-
-**Build:** `src/server/router.rs` with `Router` struct, `Route`, `add()`, `dispatch()`.
-
-**Depends on:** Phase 2 (`Handler`), existing `Request` and `RequestMethod`.
-
-**Integration:** Wire `Arc<Router>` into `Server`. Replace the match block in `handle_connection()` with `router.dispatch(&request)`. At this point the server should behave identically to before (same hardcoded routes, now via router entries) but with the new architecture in place.
-
-### Phase 4: URL path and decode methods
-
-**Build:** Add `path()` and `decoded_path()` to `Url` in `src/url/mod.rs`. Remove `#![allow(unused)]`.
-
-**Depends on:** Existing percent-encoding helpers in `url/mod.rs`.
-
-**Why here:** Needed by the static file handler but not by the router for exact matching. Can be done before or after Phase 3 — it's independent except that Phase 5 requires it.
-
-### Phase 5: StaticFileHandler + MIME detection
-
-**Build:** `src/server/static_files.rs` with `StaticFileHandler` and the `mime_for_extension()` helper.
-
-**Depends on:** Phase 1 (`Response`), Phase 2 (`Handler` trait), Phase 4 (`Url::decoded_path()`).
-
-**Integration:** Register `StaticFileHandler` with the router for `GET /*`. Remove hardcoded file paths from `handle_connection()`. The server now serves any file under the configured root directory.
-
-### Phase 6: Path traversal protection
-
-**Build:** Implement `canonicalize()` check inside `StaticFileHandler::handle()`. Add root normalization in `StaticFileHandler::new()`.
-
-**Depends on:** Phase 5 (`StaticFileHandler`).
-
-**Why last in this group:** The handler is already functional without it, but it must not be deployed without it. This is a security-critical correctness step, not an optimization.
-
----
-
-## Design Decisions and Rationale
-
-**No generics on Router.** `Box<dyn Handler>` trades a small runtime dispatch overhead for simpler code. For a static file server running on a thread pool, the overhead is negligible versus the disk I/O cost of reading files.
-
-**Vec for routes, not HashMap.** HTTP routing is almost never a hot path relative to I/O. A linear scan of a small route table (typically < 20 entries) is simpler to understand and avoids the complexity of hashing `(method, pattern)` pairs. A HashMap can be introduced later if profiling shows it matters.
-
-**Router holds Arc, not Mutex.** Routes are registered at startup and never modified after `Server::run()` starts. `Arc<Router>` (with no `Mutex`) is sufficient — `Arc` gives shared ownership across threads, and since the router is immutable after construction, `Sync` is automatically satisfied.
-
-**Response body is `Vec<u8>`.** Using `String` for the body would require `fs::read_to_string()` which fails on binary files (images, WASM, etc.). `Vec<u8>` from `fs::read()` works for all content types. Content-Length is the byte count of this Vec.
-
-**`handler.handle()` returns `Result<Response>`, not `Response`.** Handlers are fallible (file not found, I/O errors). Returning `Result` lets the caller decide how to handle failures, and lets `?` propagate errors cleanly within the handler implementation.
-
-**Static root from CLI argument, not code.** The `StaticFileHandler` takes its root from whatever is passed to `Server::new()`. Main passes a CLI argument (or the current directory as a default). This eliminates hardcoded paths and makes the server deployable from any directory.
-
----
-
-## What Does Not Belong Here
-
-- **Async I/O:** The thread pool model is correct for this project. The `Handler` trait signature (`fn handle(&self, request: &Request) -> Result<Response>`) is synchronous. Migrating to async would require changing the trait signature — that is an explicit out-of-scope decision.
-- **Keep-Alive / persistent connections:** HTTP/1.1 specifies persistent connections by default, but implementing them requires reading multiple requests per connection. That is a separate concern from routing; `handle_connection()` can continue closing the connection after one response for now.
-- **Request body parsing:** The current `Request::parse()` reads only headers. POST/PUT handlers would need body parsing — that is a future addition to `Request`, not to the router or handler trait.
-- **Middleware / interceptors:** A chain-of-responsibility middleware layer can be added later by wrapping `Box<dyn Handler>` in another `Handler` (the decorator pattern). The current design does not need it and should not add it speculatively.
-
----
-
-*Research completed: 2026-02-28*
+*Architecture research for: CI/CD ops & deployment, AWS EC2, GoDaddy DNS (v1.1)*
+*Researched: 2026-03-10*
