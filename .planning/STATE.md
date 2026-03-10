@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05.1-01-PLAN.md
-last_updated: "2026-03-03T21:54:01.250Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-03-10T02:59:36.842Z"
 last_activity: "2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete"
 progress:
   total_phases: 6
   completed_phases: 6
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 15
+  completed_plans: 15
   percent: 100
 ---
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100%
 | Phase 05-static-file-serving P03 | 8 | 1 tasks | 1 files |
 | Phase 05.1-address-tech-debt P02 | 1 | 1 tasks | 2 files |
 | Phase 05.1-address-tech-debt P01 | 2 | 3 tasks | 4 files |
+| Phase 05-static-file-serving P04 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,7 @@ Recent decisions affecting current work:
 - [Phase 05.1-01]: Removed 5 stale #[allow(dead_code)] annotations — forward-looking annotations must be cleaned up once code is in production use
 - [Phase 05.1-01]: Deleted Url::is_safe() and Url::query() entirely — zero production call sites means they add API surface with no benefit
 - [Phase 05.1-01]: peer_addr() fallback uses unwrap_or_else with sentinel 0.0.0.0:0 SocketAddr — preserves {:?} format specifier without ? propagation
+- [Phase 05-static-file-serving]: NotFoundHandler body corrected to b"Not Found\n" (10 bytes) matching not_found() helper — Content-Length computed dynamically so no hardcoded value update needed
 
 ### Roadmap Evolution
 
@@ -129,6 +131,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-03T19:55:07.102Z
-Stopped at: Completed 05.1-01-PLAN.md
+Last session: 2026-03-10T02:59:36.839Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
