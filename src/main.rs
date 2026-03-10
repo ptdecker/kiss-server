@@ -22,16 +22,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// Factored out of `parse_root()` so it can be unit-tested without `std::env::args()`.
 fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
-    let pos = args
-        .iter()
-        .position(|a| a == "--root")
-        .ok_or("--root <path> is required")?;
-    let path_str = args.get(pos + 1).ok_or("--root requires a path argument")?;
-    let path = std::path::PathBuf::from(path_str);
-    if !path.is_dir() {
-        return Err(format!("--root '{}': not a directory or does not exist", path_str).into());
+    if let Some(pos) = args.iter().position(|a| a == "--root") {
+        let path_str = args.get(pos + 1).ok_or("--root requires a path argument")?;
+        let path = std::path::PathBuf::from(path_str);
+        if !path.is_dir() {
+            return Err(format!("--root '{}': not a directory or does not exist", path_str).into());
+        }
+        Ok(path)
+    } else {
+        Err("--root <path> is required".into())
     }
-    Ok(path)
 }
 
 /// Parses `--root <path>` from `std::env::args()`.
@@ -46,6 +46,7 @@ fn parse_root() -> crate::Result<std::path::PathBuf> {
 fn main() -> Result<()> {
     SimpleLogger::init()?;
     let root = parse_root()?;
+    info!("Serving static files from root: {}", root.display());
     let handler = StaticFileHandler::new(root)?;
     let mut router = Router::new();
     router.add("GET", "/", RootHandler)?;
@@ -74,10 +75,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_root_from_no_root_flag_returns_err_with_root_in_message() {
+    fn parse_root_from_no_root_flag_returns_err() {
         let args: Vec<String> = vec![];
         let result = parse_root_from(&args);
-        assert!(result.is_err(), "expected Err when --root is absent");
+        assert!(
+            result.is_err(),
+            "expected Err when --root is absent, got: {:?}",
+            result
+        );
         let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("--root"),
