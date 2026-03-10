@@ -116,7 +116,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 **Goal:** Remove stale #[allow(dead_code)] annotations (handlers/mod.rs, router.rs), delete dead public APIs Url::is_safe() and Url::query() with their tests, fix peer_addr()? propagation hazard in debug log, and correct two planning document inaccuracies
 **Requirements**: TBD (tech debt items, no formal requirement IDs)
 **Depends on:** Phase 5
-**Plans:** 5/5 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 05.1-01-PLAN.md — Code cleanup: remove stale annotations, delete dead APIs + tests, fix peer_addr()? (handlers/mod.rs, router.rs, url/mod.rs, server/mod.rs)

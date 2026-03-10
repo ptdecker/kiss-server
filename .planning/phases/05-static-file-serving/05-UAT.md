@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 05-static-file-serving
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md]
 started: 2026-03-09T00:00:00Z
-updated: 2026-03-09T01:00:00Z
+updated: 2026-03-10T00:00:00Z
 ---
 
 ## Current Test
@@ -58,7 +58,7 @@ skipped: 0
 ## Gaps
 
 - truth: "All 404 responses have a consistent body format (text followed by newline)"
-  status: failed
+  status: resolved
   reason: "User reported: returned the correct 404 Not Found but the error message was not followed by a carriage return as it is for other errors"
   severity: minor
   test: 6
