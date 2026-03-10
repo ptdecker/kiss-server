@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-03-10T15:03:39.857Z"
-last_activity: "2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete"
+milestone: v1.1
+milestone_name: Ops & Deployment
+status: defining_requirements
+stopped_at: —
+last_updated: "2026-03-10T00:00:00.000Z"
+last_activity: "2026-03-10 — Milestone v1.1 started"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Milestone v1.0 SHIPPED — 2026-03-10
-Phase: 5.1 of 5.1 — COMPLETE (all 6 phases, 16 plans done)
-Status: Milestone complete. Start next milestone with /gsd:new-milestone
-Last activity: 2026-03-02 — Plan 05-03 complete: --root CLI parsing + StaticFileHandler registered as router fallback; FILE-03 satisfied; Phase 5 complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-10 — Milestone v1.1 started
 
 Progress: [██████████] 100%
 

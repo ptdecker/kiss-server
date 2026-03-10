@@ -39,7 +39,17 @@ A client can request any static file (HTML, CSS, JS, WASM, etc.) by path and rec
 
 ### Active
 
-*(none — start next milestone to define v1.1 requirements)*
+<!-- v1.1 Ops & Deployment — building toward these -->
+
+- [ ] GitHub Actions CI pipeline (lint + build + test) required to pass before PR merge
+- [ ] GitHub branch protection: PRs required for all changes to main
+- [ ] AWS EC2 instance running kiss-server as a managed service
+- [ ] ptodd.org domain routing (GoDaddy DNS + AWS networking) pointing to EC2
+- [ ] "Hello World" static site deployed on EC2 instance
+- [ ] GitHub CD pipeline: prod branch → deploy to EC2 + create GitHub release
+- [ ] GitHub build status badge on repository
+- [ ] CI/CD documentation in docs/ directory
+- [ ] README.md updated to reflect project, CI/CD, and deployment
 
 ### Out of Scope
 
@@ -90,5 +100,20 @@ Known non-blocking tech debt from v1.0:
 | `decoded_path()` uses byte-buffer with `hex_char_to_byte()` | Avoids `pct_decode()` multi-byte-per-call complexity | ✓ Good — simpler for sequential path byte processing |
 | 404 on path traversal (not 403) | Avoids leaking whether the path exists outside root | ✓ Good — consistent with OWASP guidance |
 
+## Current Milestone: v1.1 Ops & Deployment
+
+**Goal:** Ship the CI/CD pipeline, AWS deployment, and domain routing so kiss-server runs live at ptodd.org with automated build verification and continuous deployment.
+
+**Target features:**
+- GitHub Actions CI (lint + build + test, required before merge)
+- GitHub branch protection (PRs required for main)
+- AWS EC2 running kiss-server as a managed service
+- ptodd.org DNS + AWS networking → EC2
+- Hello World static site on EC2
+- CD pipeline (prod branch → EC2 deploy + GitHub release)
+- GitHub build status badge
+- CI/CD documentation in docs/
+- README.md update
+
 ---
-*Last updated: 2026-03-10 after v1.0 milestone*
+*Last updated: 2026-03-10 after v1.1 milestone start*
