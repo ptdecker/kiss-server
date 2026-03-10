@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-10T20:49:29.626Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-10T20:59:05.493Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 
 *Updated after each plan completion*
 | Phase 06-ci-pipeline P01 | 10 | 2 tasks | 4 files |
+| Phase 06-ci-pipeline P02 | 8 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 06-ci-pipeline]: Job name 'ci' chosen for GitHub Actions workflow — Phase 7 branch protection selects by this exact name
 - [Phase 06-ci-pipeline]: dtolnay/rust-toolchain@master reads rust-toolchain.toml automatically — no toolchain: input needed
 - [Phase 06-ci-pipeline]: scripts/ci.sh is single source of truth for CI steps — YAML only calls the script
+- [Phase 06-ci-pipeline]: dtolnay/rust-toolchain@master requires explicit toolchain: input — does not auto-read rust-toolchain.toml; pinned to 1.93.1 matching toolchain file
+- [Phase 06-ci-pipeline]: First successful CI run primes Swatinem cache; CI-06 cache restoration observable from second run onward
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T20:49:24.014Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-10T20:59:05.491Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
