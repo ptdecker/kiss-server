@@ -45,7 +45,10 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
   3. A PR with a formatting error, clippy warning, or failing test shows a red status check and cannot be merged
   4. The Rust toolchain version is pinned in rust-toolchain.toml so CI uses a fixed version regardless of upstream releases
   5. CI completes faster on repeated runs because Cargo registry and build artifacts are restored from cache
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 06-01-PLAN.md — Create rust-toolchain.toml, scripts/ci.sh, and .github/workflows/ci.yml; delete rust.yml
+- [ ] 06-02-PLAN.md — Push to GitHub, verify first CI run green, verify failure gates and cache
 
 ### Phase 7: Branch Protection
 **Goal**: Direct pushes to main are blocked — all changes must arrive via a PR with a passing CI check
@@ -125,7 +128,7 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 4. URL Path Safety | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 5. Static File Serving | v1.0 | 5/5 | Complete | 2026-03-10 |
 | 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
-| 6. CI Pipeline | v1.1 | 0/? | Not started | - |
+| 6. CI Pipeline | v1.1 | 0/2 | Not started | - |
 | 7. Branch Protection | v1.1 | 0/? | Not started | - |
 | 8. AWS Infrastructure | v1.1 | 0/? | Not started | - |
 | 9. EC2 Service Setup | v1.1 | 0/? | Not started | - |
