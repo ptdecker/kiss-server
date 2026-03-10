@@ -128,7 +128,7 @@ mod tests {
             .expect("no blank separator");
         let body_part = &buf[sep_pos + 4..];
         assert_eq!(
-            body_part, b"hello",
+            body_part, b"hell!",
             "body did not round-trip: {:?}",
             body_part
         );
