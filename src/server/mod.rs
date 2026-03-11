@@ -317,4 +317,10 @@ mod tests {
             response
         );
     }
+
+    #[test]
+    fn branch_protection_gate_test() {
+        // Intentional failure to verify CI blocks PR merge — remove after confirming BRANCH-02
+        panic!("intentional failure: branch protection CI gate test — remove after confirming BRANCH-02");
+    }
 }
