@@ -70,7 +70,10 @@ Plans:
   1. An EC2 t3.micro instance (Amazon Linux 2023, x86_64) is running and reachable via SSH from the developer's IP
   2. An Elastic IP is allocated and associated with the instance — the IP does not change across stop/start cycles
   3. Port 80 accepts connections from any IP; port 22 accepts connections only from authorized IPs
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 08-01-PLAN.md — Install AWS CLI v2, configure kiss profile credentials, verify default VPC exists
+- [ ] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH access
 
 ### Phase 9: EC2 Service Setup
 **Goal**: kiss-server runs as a managed systemd service on EC2 and serves a Hello World page on port 80
@@ -132,7 +135,7 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
 | 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
 | 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
-| 8. AWS Infrastructure | v1.1 | 0/? | Not started | - |
+| 8. AWS Infrastructure | v1.1 | 0/2 | Not started | - |
 | 9. EC2 Service Setup | v1.1 | 0/? | Not started | - |
 | 10. DNS Configuration | v1.1 | 0/? | Not started | - |
 | 11. CD Pipeline | v1.1 | 0/? | Not started | - |
