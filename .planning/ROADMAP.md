@@ -58,7 +58,9 @@ Plans:
   1. Attempting to push a commit directly to main is rejected by GitHub
   2. A PR to main cannot be merged until the CI status check reports passing
   3. The branch protection rule does not lock out the solo developer (admin bypass is not disabled)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — Set merge strategy, create idempotent setup-branch-protection.sh, apply ruleset live, verify direct push blocked and PR merge gated on CI
 
 ### Phase 8: AWS Infrastructure
 **Goal**: A stable, accessible EC2 instance exists with a permanent public IP and correct network access rules
@@ -129,7 +131,7 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 5. Static File Serving | v1.0 | 5/5 | Complete | 2026-03-10 |
 | 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
 | 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
-| 7. Branch Protection | v1.1 | 0/? | Not started | - |
+| 7. Branch Protection | v1.1 | 0/1 | Not started | - |
 | 8. AWS Infrastructure | v1.1 | 0/? | Not started | - |
 | 9. EC2 Service Setup | v1.1 | 0/? | Not started | - |
 | 10. DNS Configuration | v1.1 | 0/? | Not started | - |
