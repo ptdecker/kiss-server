@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
 stopped_at: Completed 07-branch-protection/07-01-PLAN.md
-last_updated: "2026-03-11T18:39:53.728Z"
+last_updated: "2026-03-11T20:26:00.771Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
