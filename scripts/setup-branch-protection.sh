@@ -18,7 +18,7 @@ EXISTING_ID=$(rtk proxy gh api "/repos/${REPO}/rulesets" \
     match=[r['id'] for r in rules if r['name']=='${RULESET_NAME}']; \
     print(match[0] if match else '')")
 
-TMPFILE=$(mktemp /tmp/ruleset.XXXXXX.json)
+TMPFILE=$(mktemp)
 
 cat > "$TMPFILE" << 'ENDJSON'
 {
@@ -59,8 +59,8 @@ cat > "$TMPFILE" << 'ENDJSON'
 ENDJSON
 
 if [ -n "$EXISTING_ID" ]; then
-  echo "Found existing ruleset id=${EXISTING_ID}. Updating via PATCH..."
-  rtk proxy gh api --method PATCH --input "$TMPFILE" "/repos/${REPO}/rulesets/${EXISTING_ID}"
+  echo "Found existing ruleset id=${EXISTING_ID}. Updating via PUT..."
+  rtk proxy gh api --method PUT --input "$TMPFILE" "/repos/${REPO}/rulesets/${EXISTING_ID}"
 else
   echo "No existing ruleset found. Creating via POST..."
   rtk proxy gh api --method POST --input "$TMPFILE" "/repos/${REPO}/rulesets"
