@@ -16,8 +16,8 @@
 
 ### BRANCH — Branch Protection
 
-- [ ] **BRANCH-01**: Developer cannot push directly to `main` — all changes must go through a PR
-- [ ] **BRANCH-02**: A PR cannot be merged to `main` unless the CI status check has passed
+- [x] **BRANCH-01**: Developer cannot push directly to `main` — all changes must go through a PR
+- [x] **BRANCH-02**: A PR cannot be merged to `main` unless the CI status check has passed
 
 ### INFRA — AWS Infrastructure
 
@@ -80,8 +80,8 @@
 | CI-04 | Phase 6 | Complete |
 | CI-05 | Phase 6 | Complete |
 | CI-06 | Phase 6 | Complete |
-| BRANCH-01 | Phase 7 | Pending |
-| BRANCH-02 | Phase 7 | Pending |
+| BRANCH-01 | Phase 7 | Complete |
+| BRANCH-02 | Phase 7 | Complete |
 | INFRA-01 | Phase 8 | Pending |
 | INFRA-02 | Phase 8 | Pending |
 | INFRA-03 | Phase 8 | Pending |
