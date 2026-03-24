@@ -85,7 +85,11 @@ Plans:
   3. curl http://[elastic-ip]/ returns 200 with the Hello World page content
   4. The service runs as a non-root user — port 80 traffic reaches it via iptables redirect from 80 to 8080
   5. /var/www/ptodd.org/index.html exists and is the file served at the root path
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 09-01-PLAN.md — Add --port flag and 0.0.0.0 bind to src/main.rs (TDD, with unit tests)
+- [ ] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
+- [ ] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
 
 ### Phase 10: DNS Configuration
 **Goal**: ptodd.org and www.ptodd.org resolve to the EC2 instance and return the Hello World page in a browser
