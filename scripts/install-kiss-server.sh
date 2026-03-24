@@ -9,15 +9,16 @@ set -euo pipefail
 # Requirements: Must be run on the EC2 instance (not the local machine)
 #
 # Steps:
-#   1. Create swap file (OOM guard on t3.micro)
-#   2. Install git
-#   3. Install rustup / cargo (stable toolchain)
-#   4. Clone or update repo at /opt/ptodd
-#   5. Build release binary
-#   6. Install binary as /usr/local/bin/kiss-server
-#   7. Create kiss-server system user
-#   8. Write and enable systemd unit
-#   9. Enable and start the service
+#   1.   Create swap file (OOM guard on t3.micro)
+#   2.   Install git
+#   2.5. Install gcc (C linker required by cargo)
+#   3.   Install rustup / cargo (stable toolchain)
+#   4.   Clone or update repo at /opt/ptodd
+#   5.   Build release binary
+#   6.   Install binary as /usr/local/bin/kiss-server
+#   7.   Create kiss-server system user
+#   8.   Write and enable systemd unit
+#   9.   Enable and start the service
 
 CLONE_DIR="/opt/ptodd"
 REPO_URL="https://github.com/ptdecker/kiss-server.git"
@@ -51,6 +52,17 @@ if command -v git &>/dev/null; then
 else
   echo "  Installing git..."
   sudo dnf install -y git
+fi
+
+# ─── Step 2.5: Install gcc (C linker required by cargo) ──────────────────────
+
+echo "==> Step 2.5: gcc (C linker)"
+
+if command -v gcc &>/dev/null; then
+  echo "  gcc already installed, skipping."
+else
+  echo "  Installing gcc..."
+  sudo dnf install -y gcc
 fi
 
 # ─── Step 3: Install rustup / cargo ──────────────────────────────────────────
