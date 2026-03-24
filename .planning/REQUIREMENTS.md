@@ -29,7 +29,7 @@
 
 - [ ] **DEPLOY-01**: kiss-server binary is installed at `/usr/local/bin/kiss-server` on EC2
 - [ ] **DEPLOY-02**: kiss-server runs as a systemd service that starts on boot and restarts on failure
-- [ ] **DEPLOY-03**: kiss-server listens on port 8080; iptables redirects port 80 → 8080 so non-root process can serve HTTP
+- [x] **DEPLOY-03**: kiss-server listens on port 8080; iptables redirects port 80 → 8080 so non-root process can serve HTTP
 - [ ] **DEPLOY-04**: `/var/www/ptodd.org/` directory exists on EC2 as the static file root
 - [ ] **DEPLOY-05**: A "Hello World" `index.html` is deployed at `/var/www/ptodd.org/index.html` and served correctly
 
@@ -87,7 +87,7 @@
 | INFRA-03 | Phase 8 | Complete |
 | DEPLOY-01 | Phase 9 | Pending |
 | DEPLOY-02 | Phase 9 | Pending |
-| DEPLOY-03 | Phase 9 | Pending |
+| DEPLOY-03 | Phase 9 | Complete |
 | DEPLOY-04 | Phase 9 | Pending |
 | DEPLOY-05 | Phase 9 | Pending |
 | DNS-01 | Phase 10 | Pending |

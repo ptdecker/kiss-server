@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-24T16:27:36.846Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-24T20:54:55.667Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 | Phase 07-branch-protection P01 | 3 | 3 tasks | 1 files |
 | Phase 08-aws-infrastructure P01 | 10 | 3 tasks | 0 files |
 | Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
+| Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [Phase 08-aws-infrastructure]: AWS profile kiss configured for account 859953692821 in us-east-1; all aws CLI commands in this project use --profile kiss
 - [Phase 08-aws-infrastructure]: Elastic IP 54.83.192.65 allocated (eipalloc-0deaa59ab7bff907d) and associated with instance i-0394a6d927c0d9b33 — all downstream phases use this stable address
 - [Phase 08-aws-infrastructure]: Security Group sg-0cf50c46b18fd13f3 (kiss-server-sg): port 22 open to 0.0.0.0/0, key auth is sole gate; port 80 open to 0.0.0.0/0
+- [Phase 09-ec2-service-setup]: parse_root() wrapper removed — main() calls parse_root_from(&args) directly to share args with parse_port_from()
+- [Phase 09-ec2-service-setup]: log::debug and log::warn imports moved to server/mod.rs where macros are used; main.rs retains only log::info
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T16:27:36.842Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-24T20:54:55.664Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
