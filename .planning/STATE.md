@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-24T20:54:55.667Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-24T20:58:54.139Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 | Phase 08-aws-infrastructure P01 | 10 | 3 tasks | 0 files |
 | Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
 | Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
+| Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting current work:
 - [Phase 08-aws-infrastructure]: Security Group sg-0cf50c46b18fd13f3 (kiss-server-sg): port 22 open to 0.0.0.0/0, key auth is sole gate; port 80 open to 0.0.0.0/0
 - [Phase 09-ec2-service-setup]: parse_root() wrapper removed — main() calls parse_root_from(&args) directly to share args with parse_port_from()
 - [Phase 09-ec2-service-setup]: log::debug and log::warn imports moved to server/mod.rs where macros are used; main.rs retains only log::info
+- [Phase 09-ec2-service-setup]: install-kiss-server.sh: 512MB swap file created first to prevent OOM during cargo build --release on t3.micro
+- [Phase 09-ec2-service-setup]: iptables INPUT ACCEPT for port 8080 required alongside port 80 — redirected traffic traverses INPUT chain on Amazon Linux 2023
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:54:55.664Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-24T20:58:54.136Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None

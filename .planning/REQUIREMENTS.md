@@ -27,11 +27,11 @@
 
 ### DEPLOY — EC2 Service Setup
 
-- [ ] **DEPLOY-01**: kiss-server binary is installed at `/usr/local/bin/kiss-server` on EC2
-- [ ] **DEPLOY-02**: kiss-server runs as a systemd service that starts on boot and restarts on failure
+- [x] **DEPLOY-01**: kiss-server binary is installed at `/usr/local/bin/kiss-server` on EC2
+- [x] **DEPLOY-02**: kiss-server runs as a systemd service that starts on boot and restarts on failure
 - [x] **DEPLOY-03**: kiss-server listens on port 8080; iptables redirects port 80 → 8080 so non-root process can serve HTTP
-- [ ] **DEPLOY-04**: `/var/www/ptodd.org/` directory exists on EC2 as the static file root
-- [ ] **DEPLOY-05**: A "Hello World" `index.html` is deployed at `/var/www/ptodd.org/index.html` and served correctly
+- [x] **DEPLOY-04**: `/var/www/ptodd.org/` directory exists on EC2 as the static file root
+- [x] **DEPLOY-05**: A "Hello World" `index.html` is deployed at `/var/www/ptodd.org/index.html` and served correctly
 
 ### DNS — Domain Routing
 
@@ -85,11 +85,11 @@
 | INFRA-01 | Phase 8 | Complete |
 | INFRA-02 | Phase 8 | Complete |
 | INFRA-03 | Phase 8 | Complete |
-| DEPLOY-01 | Phase 9 | Pending |
-| DEPLOY-02 | Phase 9 | Pending |
+| DEPLOY-01 | Phase 9 | Complete |
+| DEPLOY-02 | Phase 9 | Complete |
 | DEPLOY-03 | Phase 9 | Complete |
-| DEPLOY-04 | Phase 9 | Pending |
-| DEPLOY-05 | Phase 9 | Pending |
+| DEPLOY-04 | Phase 9 | Complete |
+| DEPLOY-05 | Phase 9 | Complete |
 | DNS-01 | Phase 10 | Pending |
 | DNS-02 | Phase 10 | Pending |
 | DNS-03 | Phase 10 | Pending |

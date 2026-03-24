@@ -88,7 +88,7 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 09-01-PLAN.md — Add --port flag and 0.0.0.0 bind to src/main.rs (TDD, with unit tests)
-- [ ] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
+- [x] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
 - [ ] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
 
 ### Phase 10: DNS Configuration
@@ -140,7 +140,7 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
 | 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
 | 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
-| 9. EC2 Service Setup | v1.1 | 1/3 | In Progress|  |
+| 9. EC2 Service Setup | v1.1 | 2/3 | In Progress|  |
 | 10. DNS Configuration | v1.1 | 0/? | Not started | - |
 | 11. CD Pipeline | v1.1 | 0/? | Not started | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
