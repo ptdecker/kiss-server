@@ -21,9 +21,9 @@
 
 ### INFRA — AWS Infrastructure
 
-- [ ] **INFRA-01**: An EC2 t3.micro instance (Amazon Linux 2023, x86_64) exists and is accessible via SSH
-- [ ] **INFRA-02**: An Elastic IP is allocated and associated with the EC2 instance (stable, survives stop/start)
-- [ ] **INFRA-03**: Security Group allows port 80 inbound from `0.0.0.0/0` and port 22 inbound from authorized IPs only
+- [x] **INFRA-01**: An EC2 t3.micro instance (Amazon Linux 2023, x86_64) exists and is accessible via SSH
+- [x] **INFRA-02**: An Elastic IP is allocated and associated with the EC2 instance (stable, survives stop/start)
+- [x] **INFRA-03**: Security Group allows port 80 inbound from `0.0.0.0/0` and port 22 inbound from authorized IPs only
 
 ### DEPLOY — EC2 Service Setup
 
@@ -82,9 +82,9 @@
 | CI-06 | Phase 6 | Complete |
 | BRANCH-01 | Phase 7 | Complete |
 | BRANCH-02 | Phase 7 | Complete |
-| INFRA-01 | Phase 8 | Pending |
-| INFRA-02 | Phase 8 | Pending |
-| INFRA-03 | Phase 8 | Pending |
+| INFRA-01 | Phase 8 | Complete |
+| INFRA-02 | Phase 8 | Complete |
+| INFRA-03 | Phase 8 | Complete |
 | DEPLOY-01 | Phase 9 | Pending |
 | DEPLOY-02 | Phase 9 | Pending |
 | DEPLOY-03 | Phase 9 | Pending |

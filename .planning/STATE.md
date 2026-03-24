@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-11T21:09:28.947Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-24T16:11:28.270Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 0
 ---
 
@@ -35,6 +35,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 ## Performance Metrics
 
 **Velocity (v1.0 reference):**
+
 - Total plans completed: 16
 - Average duration: ~5 min
 - Total execution time: ~1.3 hours
@@ -54,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 
 *Updated after each plan completion*
 | Phase 07-branch-protection P01 | 3 | 3 tasks | 1 files |
+| Phase 08-aws-infrastructure P01 | 10 | 3 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -69,6 +71,8 @@ Recent decisions affecting current work:
 - Roadmap: SCP to /tmp/ then atomic mv — never SCP over a running binary (SIGBUS risk)
 - [Phase 07-branch-protection]: GitHub Rulesets update endpoint uses PUT not PATCH (PATCH returns 404)
 - [Phase 07-branch-protection]: RepositoryRole actor_id 5 bypass_mode always preserves solo developer emergency push access to main
+- [Phase 08-aws-infrastructure]: Default VPC in us-east-1 was deleted — recreated via aws ec2 create-default-vpc; ID is vpc-0af357914ff0ad825
+- [Phase 08-aws-infrastructure]: AWS profile kiss configured for account 859953692821 in us-east-1; all aws CLI commands in this project use --profile kiss
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-11T21:09:28.936Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-aws-infrastructure/08-CONTEXT.md
+Last session: 2026-03-24T16:11:28.266Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None
