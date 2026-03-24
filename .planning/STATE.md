@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-24T20:58:54.139Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-03-24T21:15:00.125Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 0
 ---
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 | Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
 | Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
 | Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
+| Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 09-ec2-service-setup]: log::debug and log::warn imports moved to server/mod.rs where macros are used; main.rs retains only log::info
 - [Phase 09-ec2-service-setup]: install-kiss-server.sh: 512MB swap file created first to prevent OOM during cargo build --release on t3.micro
 - [Phase 09-ec2-service-setup]: iptables INPUT ACCEPT for port 8080 required alongside port 80 — redirected traffic traverses INPUT chain on Amazon Linux 2023
+- [Phase 09-ec2-service-setup]: gcc (dnf install -y gcc) required before cargo build --release on fresh Amazon Linux 2023 — C linker absent on minimal image
+- [Phase 09-ec2-service-setup]: kiss-server deployment: SCP scripts to /tmp/, execute via SSH; script order is install-kiss-server.sh -> setup-webroot.sh -> setup-iptables.sh
 
 ### Pending Todos
 
@@ -95,6 +98,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:58:54.136Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-03-24T21:15:00.123Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
