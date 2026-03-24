@@ -99,7 +99,10 @@ Plans:
   1. A GoDaddy A record for @ (ptodd.org) points to the Elastic IP
   2. A GoDaddy CNAME for www points to @ so www.ptodd.org also resolves
   3. Opening http://ptodd.org/ and http://www.ptodd.org/ in a browser returns the Hello World page
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 10-01-PLAN.md — Write scripts/verify-dns.sh smoke test for A record, CNAME, and HTTP content checks
+- [ ] 10-02-PLAN.md — Configure GoDaddy DNS records (manual), verify with verify-dns.sh and browser
 
 ### Phase 11: CD Pipeline
 **Goal**: Pushing to the prod branch automatically builds, deploys, and releases kiss-server to EC2 with a verified health check
@@ -141,6 +144,6 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
 | 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
 | 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
-| 10. DNS Configuration | v1.1 | 0/? | Not started | - |
+| 10. DNS Configuration | v1.1 | 0/2 | Not started | - |
 | 11. CD Pipeline | v1.1 | 0/? | Not started | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
