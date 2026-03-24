@@ -5,7 +5,7 @@ use log::info;
 use logger::SimpleLogger;
 use server::{Router, Server};
 
-use handlers::{RootHandler, StaticFileHandler};
+use handlers::StaticFileHandler;
 
 mod handlers;
 mod logger;
@@ -58,9 +58,7 @@ fn main() -> Result<()> {
     let addr = format!("0.0.0.0:{}", port);
     info!("Serving static files from root: {}", root.display());
     let handler = StaticFileHandler::new(root)?;
-    let mut router = Router::new();
-    router.add("GET", "/", RootHandler)?;
-    let router = router.set_fallback(handler);
+    let router = Router::new().set_fallback(handler);
     Server::new(&addr)?.with_router(router).run()?;
     Ok(())
 }

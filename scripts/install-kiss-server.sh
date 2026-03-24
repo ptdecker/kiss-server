@@ -22,6 +22,7 @@ set -euo pipefail
 
 CLONE_DIR="/opt/ptodd"
 REPO_URL="https://github.com/ptdecker/kiss-server.git"
+REPO_BRANCH="main"
 BINARY_SRC="$CLONE_DIR/target/release/ptodd"
 BINARY_DEST="/usr/local/bin/kiss-server"
 KISS_USER="kiss-server"
@@ -84,11 +85,13 @@ source "$HOME/.cargo/env"
 echo "==> Step 4: Repo at $CLONE_DIR"
 
 if [ -d "$CLONE_DIR/.git" ]; then
-  echo "  Repo already cloned, pulling latest..."
-  git -C "$CLONE_DIR" pull
+  echo "  Repo already cloned, pulling latest ($REPO_BRANCH)..."
+  git -C "$CLONE_DIR" fetch origin
+  git -C "$CLONE_DIR" checkout "$REPO_BRANCH"
+  git -C "$CLONE_DIR" pull origin "$REPO_BRANCH"
 else
-  echo "  Cloning repo to $CLONE_DIR..."
-  sudo git clone "$REPO_URL" "$CLONE_DIR"
+  echo "  Cloning repo ($REPO_BRANCH) to $CLONE_DIR..."
+  sudo git clone --branch "$REPO_BRANCH" "$REPO_URL" "$CLONE_DIR"
   sudo chown -R ec2-user:ec2-user "$CLONE_DIR"
 fi
 
@@ -99,8 +102,11 @@ echo "  Building release binary (this may take a few minutes)..."
 cargo build --release --manifest-path "$CLONE_DIR/Cargo.toml"
 
 # ─── Step 6: Install binary (rename ptodd → kiss-server) ─────────────────────
+# Stop service before copying — cannot overwrite a running binary (Text file busy).
 
 echo "==> Step 6: Install binary"
+echo "  Stopping kiss-server (if running) before binary install..."
+sudo systemctl stop kiss-server 2>/dev/null || true
 echo "  Installing binary to $BINARY_DEST..."
 sudo cp "$BINARY_SRC" "$BINARY_DEST"
 sudo chmod +x "$BINARY_DEST"

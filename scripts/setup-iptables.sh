@@ -52,26 +52,30 @@ else
 fi
 
 # ─── Step 4: INPUT ACCEPT for port 80 ────────────────────────────────────────
+# Use -I INPUT 4 to INSERT before position 5 (the default REJECT all rule from
+# iptables-services). Using -A (append) places the rule AFTER the REJECT, making
+# it unreachable.
 
 echo "==> Step 4: INPUT ACCEPT port 80"
 
 if sudo iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null; then
   echo "  INPUT ACCEPT port 80 already exists, skipping."
 else
-  echo "  Adding INPUT ACCEPT rule for port 80..."
-  sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+  echo "  Adding INPUT ACCEPT rule for port 80 (insert at position 4)..."
+  sudo iptables -I INPUT 4 -p tcp --dport 80 -j ACCEPT
 fi
 
 # ─── Step 5: INPUT ACCEPT for port 8080 ──────────────────────────────────────
 # Required: redirected traffic (80 → 8080) traverses the INPUT chain, not just FORWARD.
+# Insert at position 5 (after port 80 rule, before REJECT).
 
 echo "==> Step 5: INPUT ACCEPT port 8080"
 
 if sudo iptables -C INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null; then
   echo "  INPUT ACCEPT port 8080 already exists, skipping."
 else
-  echo "  Adding INPUT ACCEPT rule for port 8080..."
-  sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+  echo "  Adding INPUT ACCEPT rule for port 8080 (insert at position 5)..."
+  sudo iptables -I INPUT 5 -p tcp --dport 8080 -j ACCEPT
 fi
 
 # ─── Step 6: Save rules for persistence ──────────────────────────────────────
