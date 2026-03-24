@@ -73,7 +73,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 08-01-PLAN.md — Install AWS CLI v2, configure kiss profile credentials, verify default VPC exists
-- [ ] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH access
+- [x] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH access
 
 ### Phase 9: EC2 Service Setup
 **Goal**: kiss-server runs as a managed systemd service on EC2 and serves a Hello World page on port 80

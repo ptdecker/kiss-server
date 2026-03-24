@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-24T16:11:28.270Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-24T16:27:36.846Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 *Updated after each plan completion*
 | Phase 07-branch-protection P01 | 3 | 3 tasks | 1 files |
 | Phase 08-aws-infrastructure P01 | 10 | 3 tasks | 0 files |
+| Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 07-branch-protection]: RepositoryRole actor_id 5 bypass_mode always preserves solo developer emergency push access to main
 - [Phase 08-aws-infrastructure]: Default VPC in us-east-1 was deleted — recreated via aws ec2 create-default-vpc; ID is vpc-0af357914ff0ad825
 - [Phase 08-aws-infrastructure]: AWS profile kiss configured for account 859953692821 in us-east-1; all aws CLI commands in this project use --profile kiss
+- [Phase 08-aws-infrastructure]: Elastic IP 54.83.192.65 allocated (eipalloc-0deaa59ab7bff907d) and associated with instance i-0394a6d927c0d9b33 — all downstream phases use this stable address
+- [Phase 08-aws-infrastructure]: Security Group sg-0cf50c46b18fd13f3 (kiss-server-sg): port 22 open to 0.0.0.0/0, key auth is sole gate; port 80 open to 0.0.0.0/0
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T16:11:28.266Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-24T16:27:36.842Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
