@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: planning
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-03-24T21:15:00.125Z"
-last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
+status: Ready to execute
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-24T21:38:44.394Z"
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-  percent: 0
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 6 — CI Pipeline
+**Current focus:** Phase 10 — dns-configuration
 
 ## Current Position
 
-Phase: 6 of 12 (CI Pipeline)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
-
-Progress: [░░░░░░░░░░] 0% (v1.1)
+Phase: 10 (dns-configuration) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -60,6 +54,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 | Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
 | Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
 | Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
+| Phase 10 P01 | 525582 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -85,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase 09-ec2-service-setup]: iptables INPUT ACCEPT for port 8080 required alongside port 80 — redirected traffic traverses INPUT chain on Amazon Linux 2023
 - [Phase 09-ec2-service-setup]: gcc (dnf install -y gcc) required before cargo build --release on fresh Amazon Linux 2023 — C linker absent on minimal image
 - [Phase 09-ec2-service-setup]: kiss-server deployment: SCP scripts to /tmp/, execute via SSH; script order is install-kiss-server.sh -> setup-webroot.sh -> setup-iptables.sh
+- [Phase 10]: verify-dns.sh uses tail -1 on dig output for www CNAME resolution to handle multi-line output; wraps curl|grep in if/else to avoid set -e aborting on grep non-match
 
 ### Pending Todos
 
@@ -98,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T21:15:00.123Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-03-24T21:38:44.391Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
