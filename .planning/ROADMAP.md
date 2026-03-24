@@ -29,7 +29,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 - [x] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge (completed 2026-03-11)
 - [ ] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group
 - [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site (completed 2026-03-24)
-- [ ] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy
+- [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (completed 2026-03-24)
 - [ ] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release
 - [ ] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README
 
@@ -144,6 +144,6 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
 | 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
 | 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
-| 10. DNS Configuration | v1.1 | 1/2 | In Progress|  |
+| 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
 | 11. CD Pipeline | v1.1 | 0/? | Not started | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
