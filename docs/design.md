@@ -4,7 +4,7 @@ The kiss-server is a from-scratch HTTP/1.1 static file server written in pure Ru
 dependencies beyond the `log` crate facade. This document explains the core design patterns and key
 decisions.
 
-## Handler / Context / Router
+## Handler, Context, and Router
 
 The request pipeline is built around three types that work together:
 
@@ -14,7 +14,7 @@ The request pipeline is built around three types that work together:
   Returning `Err` causes the server to send a 500 response.
 
 - **Context**: Wraps the incoming `Request` and the outgoing `Response` for a single HTTP
-  request/response cycle. Constructed per-request in `handle_connection`. Handlers read the request
+  request and response cycle. Constructed per-request in `handle_connection`. Handlers read the request
   from `ctx.request` and write the response into `ctx.response` in place.
 
 - **Router**: Maps URL paths to Handler implementations via a registration list. Routes are checked
@@ -76,7 +76,7 @@ fallback, so every request goes to file serving. Named routes exist for tests an
 | Router-first design                                         | Static files are a route handler, not special-cased logic                        | Good    |
 | Static root via CLI arg (`--root` required)                 | Most flexible; avoids hardcoding conventions; server refuses to start without it | Good    |
 | No async runtime                                            | Learning project stays simple; thread pool sufficient for goals                  | Good    |
-| Howard Hinnant `civil_from_days`                            | O(1) Gregorian arithmetic, replaces iterative year/month loops                   | Good    |
+| Howard Hinnant `civil_from_days`                            | O(1) Gregorian arithmetic, replaces iterative year and month loops               | Good    |
 | `Result` propagation throughout                             | Eliminate all `unwrap()` on unhappy paths                                        | Good    |
 | `Vec<(String,String)>` for headers                          | Preserves insertion order; no hashing overhead for <15 headers                   | Good    |
 | `write_to` consumes `Response` (`self`)                     | Prevents double-send; ownership enforces correct use at compile time             | Good    |

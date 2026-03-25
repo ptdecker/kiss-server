@@ -32,7 +32,7 @@ This triggers the CD pipeline which builds a release binary, deploys it to EC2, 
 
 ## Architecture
 
-kiss-server uses a Handler/Context/Router abstraction with a fixed thread pool for concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is built on Rust's standard library — no async runtime, no frameworks.
+kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is built on Rust's standard library — no async runtime, no frameworks.
 
 See [docs/design.md](docs/design.md) for the full architecture walkthrough.
 
