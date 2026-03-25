@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: Ready to plan
-stopped_at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
-last_updated: "2026-03-25T02:28:59.651Z"
+status: Ready to execute
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-25T02:50:38.095Z"
 progress:
   total_phases: 8
   completed_phases: 6
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 10.1 — rename-cargo-package-and-directory
+**Current focus:** Phase 11 — cd-pipeline
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 11 (cd-pipeline) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Plan: Not started
 | Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
 | Phase 10 P01 | 525582 | 1 tasks | 1 files |
 | Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
+| Phase 11 P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,10 @@ Recent decisions affecting current work:
 - [Phase 10]: verify-dns.sh uses tail -1 on dig output for www CNAME resolution to handle multi-line output; wraps curl|grep in if/else to avoid set -e aborting on grep non-match
 - [Phase 10.1]: Option A EC2 migration: update script variables only; /opt/ptodd becomes safe orphan on next deploy run
 - [Phase 10.1]: Domain strings ptodd.org intentionally left unchanged in README, main.rs, and WEBROOT variable
+- [Phase 11]: Used softprops/action-gh-release@v2 for atomic tag+asset creation in CD pipeline
+- [Phase 11]: Static EC2_KNOWN_HOSTS secret over runtime ssh-keyscan to prevent TOFU risk
+- [Phase 11]: No required_status_checks on prod ruleset — prod is deploy target, CI gates belong on main
+- [Phase 11]: deploy/{sha} tag format distinguishes CD releases from future semver releases
 
 ### Pending Todos
 
@@ -101,6 +106,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T02:25:49.054Z
-Stopped at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
+Last session: 2026-03-25T02:50:38.091Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None

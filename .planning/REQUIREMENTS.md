@@ -41,11 +41,11 @@
 
 ### CD — Continuous Deployment
 
-- [ ] **CD-01**: Pushing to the `prod` branch automatically triggers a deployment to EC2
-- [ ] **CD-02**: CD pipeline builds a release binary (`cargo build --release`) on the CI runner
-- [ ] **CD-03**: CD pipeline atomically replaces the binary on EC2 (SCP to temp → stop → mv → start)
-- [ ] **CD-04**: CD pipeline verifies the service is running after deploy (`systemctl is-active`) and fails the pipeline if it is not
-- [ ] **CD-05**: CD pipeline creates a GitHub Release tagged with the prod commit SHA and attaches the compiled binary as a release asset
+- [x] **CD-01**: Pushing to the `prod` branch automatically triggers a deployment to EC2
+- [x] **CD-02**: CD pipeline builds a release binary (`cargo build --release`) on the CI runner
+- [x] **CD-03**: CD pipeline atomically replaces the binary on EC2 (SCP to temp → stop → mv → start)
+- [x] **CD-04**: CD pipeline verifies the service is running after deploy (`systemctl is-active`) and fails the pipeline if it is not
+- [x] **CD-05**: CD pipeline creates a GitHub Release tagged with the prod commit SHA and attaches the compiled binary as a release asset
 
 ### DOCS — Badge, Documentation, README
 
@@ -93,11 +93,11 @@
 | DNS-01 | Phase 10 | Complete |
 | DNS-02 | Phase 10 | Complete |
 | DNS-03 | Phase 10 | Complete |
-| CD-01 | Phase 11 | Pending |
-| CD-02 | Phase 11 | Pending |
-| CD-03 | Phase 11 | Pending |
-| CD-04 | Phase 11 | Pending |
-| CD-05 | Phase 11 | Pending |
+| CD-01 | Phase 11 | Complete |
+| CD-02 | Phase 11 | Complete |
+| CD-03 | Phase 11 | Complete |
+| CD-04 | Phase 11 | Complete |
+| CD-05 | Phase 11 | Complete |
 | DOCS-01 | Phase 12 | Pending |
 | DOCS-02 | Phase 12 | Pending |
 | DOCS-03 | Phase 12 | Pending |
