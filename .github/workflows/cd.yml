@@ -42,7 +42,7 @@ jobs:
           # Strip leading 'v' for CHANGELOG lookup: v1.1.0 -> 1.1.0
           VERSION="${TAG#v}"
           # Extract section between ## [VERSION] and the next ## [ heading
-          BODY=$(awk -v ver="$VERSION" '$0 == "## [" ver "]" { found=1; next } found && /^## \[/ { exit } found { print }' CHANGELOG.md)
+          BODY=$(awk -v ver="$VERSION" 'index($0, "## [" ver "]") == 1 { found=1; next } found && /^## \[/ { exit } found { print }' CHANGELOG.md)
           if [ -z "$BODY" ]; then
             echo "::error::CHANGELOG.md has no entry for version ${VERSION}. Add a ## [${VERSION}] section."
             exit 1
