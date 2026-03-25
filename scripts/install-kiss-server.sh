@@ -13,17 +13,17 @@ set -euo pipefail
 #   2.   Install git
 #   2.5. Install gcc (C linker required by cargo)
 #   3.   Install rustup / cargo (stable toolchain)
-#   4.   Clone or update repo at /opt/ptodd
+#   4.   Clone or update repo at /opt/kiss-server
 #   5.   Build release binary
 #   6.   Install binary as /usr/local/bin/kiss-server
 #   7.   Create kiss-server system user
 #   8.   Write and enable systemd unit
 #   9.   Enable and start the service
 
-CLONE_DIR="/opt/ptodd"
+CLONE_DIR="/opt/kiss-server"
 REPO_URL="https://github.com/ptdecker/kiss-server.git"
 REPO_BRANCH="main"
-BINARY_SRC="$CLONE_DIR/target/release/ptodd"
+BINARY_SRC="$CLONE_DIR/target/release/kiss-server"
 BINARY_DEST="/usr/local/bin/kiss-server"
 KISS_USER="kiss-server"
 SERVICE_FILE="/etc/systemd/system/kiss-server.service"
@@ -101,7 +101,7 @@ echo "==> Step 5: cargo build --release"
 echo "  Building release binary (this may take a few minutes)..."
 cargo build --release --manifest-path "$CLONE_DIR/Cargo.toml"
 
-# ─── Step 6: Install binary (rename ptodd → kiss-server) ─────────────────────
+# ─── Step 6: Install binary ──────────────────────────────────────────────────
 # Stop service before copying — cannot overwrite a running binary (Text file busy).
 
 echo "==> Step 6: Install binary"
