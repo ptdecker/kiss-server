@@ -39,6 +39,9 @@ mod worker;
 /// Tread pool size
 const DEFAULT_POOL_SIZE: usize = 4;
 
+/// When true, inject an X-Powered-By header into normal HTTP responses.
+const ENABLE_POWERED_BY: bool = true;
+
 /// A server, which listens for incoming connections and handles them.
 #[derive(Debug)]
 pub struct Server {
@@ -202,6 +205,10 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     // Inject Date header after dispatch (HTTP-03: every response must have Date)
     if let Ok(dt) = DateTime::now() {
         ctx.response.add_header("Date", &dt.to_imf_fixdate());
+    }
+
+    if ENABLE_POWERED_BY {
+        ctx.response.add_header("X-Powered-By", concat!("kiss-serve/", env!("CARGO_PKG_VERSION")));
     }
 
     ctx.response.write_to(&mut stream)?;
