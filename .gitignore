@@ -3,3 +3,5 @@
 .idea
 /target
 bluehost_backup
+.DS_Store
+.planning/
