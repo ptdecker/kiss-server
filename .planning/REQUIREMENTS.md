@@ -16,22 +16,22 @@
 
 ### BRANCH — Branch Protection
 
-- [ ] **BRANCH-01**: Developer cannot push directly to `main` — all changes must go through a PR
-- [ ] **BRANCH-02**: A PR cannot be merged to `main` unless the CI status check has passed
+- [x] **BRANCH-01**: Developer cannot push directly to `main` — all changes must go through a PR
+- [x] **BRANCH-02**: A PR cannot be merged to `main` unless the CI status check has passed
 
 ### INFRA — AWS Infrastructure
 
-- [ ] **INFRA-01**: An EC2 t3.micro instance (Amazon Linux 2023, x86_64) exists and is accessible via SSH
-- [ ] **INFRA-02**: An Elastic IP is allocated and associated with the EC2 instance (stable, survives stop/start)
-- [ ] **INFRA-03**: Security Group allows port 80 inbound from `0.0.0.0/0` and port 22 inbound from authorized IPs only
+- [x] **INFRA-01**: An EC2 t3.micro instance (Amazon Linux 2023, x86_64) exists and is accessible via SSH
+- [x] **INFRA-02**: An Elastic IP is allocated and associated with the EC2 instance (stable, survives stop/start)
+- [x] **INFRA-03**: Security Group allows port 80 inbound from `0.0.0.0/0` and port 22 inbound from authorized IPs only
 
 ### DEPLOY — EC2 Service Setup
 
-- [ ] **DEPLOY-01**: kiss-server binary is installed at `/usr/local/bin/kiss-server` on EC2
-- [ ] **DEPLOY-02**: kiss-server runs as a systemd service that starts on boot and restarts on failure
-- [ ] **DEPLOY-03**: kiss-server listens on port 8080; iptables redirects port 80 → 8080 so non-root process can serve HTTP
-- [ ] **DEPLOY-04**: `/var/www/ptodd.org/` directory exists on EC2 as the static file root
-- [ ] **DEPLOY-05**: A "Hello World" `index.html` is deployed at `/var/www/ptodd.org/index.html` and served correctly
+- [x] **DEPLOY-01**: kiss-server binary is installed at `/usr/local/bin/kiss-server` on EC2
+- [x] **DEPLOY-02**: kiss-server runs as a systemd service that starts on boot and restarts on failure
+- [x] **DEPLOY-03**: kiss-server listens on port 8080; iptables redirects port 80 → 8080 so non-root process can serve HTTP
+- [x] **DEPLOY-04**: `/var/www/ptodd.org/` directory exists on EC2 as the static file root
+- [x] **DEPLOY-05**: A "Hello World" `index.html` is deployed at `/var/www/ptodd.org/index.html` and served correctly
 
 ### DNS — Domain Routing
 
@@ -80,16 +80,16 @@
 | CI-04 | Phase 6 | Complete |
 | CI-05 | Phase 6 | Complete |
 | CI-06 | Phase 6 | Complete |
-| BRANCH-01 | Phase 7 | Pending |
-| BRANCH-02 | Phase 7 | Pending |
-| INFRA-01 | Phase 8 | Pending |
-| INFRA-02 | Phase 8 | Pending |
-| INFRA-03 | Phase 8 | Pending |
-| DEPLOY-01 | Phase 9 | Pending |
-| DEPLOY-02 | Phase 9 | Pending |
-| DEPLOY-03 | Phase 9 | Pending |
-| DEPLOY-04 | Phase 9 | Pending |
-| DEPLOY-05 | Phase 9 | Pending |
+| BRANCH-01 | Phase 7 | Complete |
+| BRANCH-02 | Phase 7 | Complete |
+| INFRA-01 | Phase 8 | Complete |
+| INFRA-02 | Phase 8 | Complete |
+| INFRA-03 | Phase 8 | Complete |
+| DEPLOY-01 | Phase 9 | Complete |
+| DEPLOY-02 | Phase 9 | Complete |
+| DEPLOY-03 | Phase 9 | Complete |
+| DEPLOY-04 | Phase 9 | Complete |
+| DEPLOY-05 | Phase 9 | Complete |
 | DNS-01 | Phase 10 | Pending |
 | DNS-02 | Phase 10 | Pending |
 | DNS-03 | Phase 10 | Pending |

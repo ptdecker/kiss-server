@@ -3,6 +3,7 @@
 //! This module implements a basic HTTP server. This server leverages a thread pool to handle
 //! pool to handle incoming connections. It has no third-party crate dependencies.
 
+use log::{debug, warn};
 use std::{
     fmt,
     io::{prelude::*, BufReader},

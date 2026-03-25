@@ -26,7 +26,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 **Milestone Goal:** kiss-server runs live at ptodd.org — automated build verification, branch protection, AWS deployment, domain routing, and continuous deployment from the prod branch.
 
 - [x] **Phase 6: CI Pipeline** — GitHub Actions workflow that lints, builds, and tests on every push and PR (completed 2026-03-10)
-- [ ] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge
+- [x] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge (completed 2026-03-11)
 - [ ] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group
 - [ ] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site
 - [ ] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy
@@ -70,7 +70,10 @@ Plans:
   1. An EC2 t3.micro instance (Amazon Linux 2023, x86_64) is running and reachable via SSH from the developer's IP
   2. An Elastic IP is allocated and associated with the instance — the IP does not change across stop/start cycles
   3. Port 80 accepts connections from any IP; port 22 accepts connections only from authorized IPs
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 08-01-PLAN.md — Install AWS CLI v2, configure kiss profile credentials, verify default VPC exists
+- [x] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH access
 
 ### Phase 9: EC2 Service Setup
 **Goal**: kiss-server runs as a managed systemd service on EC2 and serves a Hello World page on port 80
@@ -82,7 +85,11 @@ Plans:
   3. curl http://[elastic-ip]/ returns 200 with the Hello World page content
   4. The service runs as a non-root user — port 80 traffic reaches it via iptables redirect from 80 to 8080
   5. /var/www/ptodd.org/index.html exists and is the file served at the root path
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 09-01-PLAN.md — Add --port flag and 0.0.0.0 bind to src/main.rs (TDD, with unit tests)
+- [x] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
+- [ ] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
 
 ### Phase 10: DNS Configuration
 **Goal**: ptodd.org and www.ptodd.org resolve to the EC2 instance and return the Hello World page in a browser
@@ -131,9 +138,9 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 5. Static File Serving | v1.0 | 5/5 | Complete | 2026-03-10 |
 | 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
 | 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
-| 7. Branch Protection | v1.1 | 0/1 | Not started | - |
-| 8. AWS Infrastructure | v1.1 | 0/? | Not started | - |
-| 9. EC2 Service Setup | v1.1 | 0/? | Not started | - |
+| 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
+| 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
+| 9. EC2 Service Setup | v1.1 | 2/3 | In Progress|  |
 | 10. DNS Configuration | v1.1 | 0/? | Not started | - |
 | 11. CD Pipeline | v1.1 | 0/? | Not started | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |

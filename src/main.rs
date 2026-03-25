@@ -1,11 +1,11 @@
 //! Provides the backend implementation for the ptodd.org website.
 
-use log::{debug, info, warn};
+use log::info;
 
 use logger::SimpleLogger;
 use server::{Router, Server};
 
-use handlers::{RootHandler, StaticFileHandler};
+use handlers::StaticFileHandler;
 
 mod handlers;
 mod logger;
@@ -13,14 +13,15 @@ mod server;
 mod time;
 mod url;
 
-const DEFAULT_ADDR: &str = "localhost:6502";
+const DEFAULT_PORT: u16 = 6502;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Parses `--root <path>` from the provided args slice (excluding the binary name at index 0).
 ///
-/// Factored out of `parse_root()` so it can be unit-tested without `std::env::args()`.
+/// Returns the validated path (confirms it is a directory before returning).
+/// `StaticFileHandler::new()` will canonicalize it further.
 fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
     if let Some(pos) = args.iter().position(|a| a == "--root") {
         let path_str = args.get(pos + 1).ok_or("--root requires a path argument")?;
@@ -34,24 +35,31 @@ fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
     }
 }
 
-/// Parses `--root <path>` from `std::env::args()`.
+/// Parses `--port <num>` from the provided args slice (excluding the binary name at index 0).
 ///
-/// Returns the validated path (confirms it is a directory before returning).
-/// `StaticFileHandler::new()` will canonicalize it further.
-fn parse_root() -> crate::Result<std::path::PathBuf> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    parse_root_from(&args)
+/// Returns the port number as `u16`, or `DEFAULT_PORT` if `--port` is absent.
+fn parse_port_from(args: &[String]) -> crate::Result<u16> {
+    if let Some(pos) = args.iter().position(|a| a == "--port") {
+        let port_str = args.get(pos + 1).ok_or("--port requires a port number")?;
+        let port: u16 = port_str
+            .parse()
+            .map_err(|_| format!("--port '{}': not a valid port number", port_str))?;
+        Ok(port)
+    } else {
+        Ok(DEFAULT_PORT)
+    }
 }
 
 fn main() -> Result<()> {
     SimpleLogger::init()?;
-    let root = parse_root()?;
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let root = parse_root_from(&args)?;
+    let port = parse_port_from(&args)?;
+    let addr = format!("0.0.0.0:{}", port);
     info!("Serving static files from root: {}", root.display());
     let handler = StaticFileHandler::new(root)?;
-    let mut router = Router::new();
-    router.add("GET", "/", RootHandler)?;
-    let router = router.set_fallback(handler);
-    Server::new(DEFAULT_ADDR)?.with_router(router).run()?;
+    let router = Router::new().set_fallback(handler);
+    Server::new(&addr)?.with_router(router).run()?;
     Ok(())
 }
 
@@ -113,6 +121,49 @@ mod tests {
         assert!(
             msg.contains("--root"),
             "error message should mention --root, got: {:?}",
+            msg
+        );
+    }
+
+    // ========== parse_port_from() unit tests ==========
+
+    #[test]
+    fn parse_port_from_valid_port_returns_ok() {
+        let args = vec!["--port".to_string(), "8080".to_string()];
+        let result = parse_port_from(&args);
+        assert!(
+            result.is_ok(),
+            "expected Ok(8080) for valid port, got: {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), 8080u16);
+    }
+
+    #[test]
+    fn parse_port_from_no_port_flag_returns_default() {
+        let args: Vec<String> = vec![];
+        let result = parse_port_from(&args);
+        assert!(
+            result.is_ok(),
+            "expected Ok(DEFAULT_PORT) when --port is absent, got: {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), DEFAULT_PORT);
+    }
+
+    #[test]
+    fn parse_port_from_invalid_port_value_returns_err() {
+        let args = vec!["--port".to_string(), "abc".to_string()];
+        let result = parse_port_from(&args);
+        assert!(
+            result.is_err(),
+            "expected Err for invalid port value, got: {:?}",
+            result
+        );
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("--port"),
+            "error message should mention --port, got: {:?}",
             msg
         );
     }

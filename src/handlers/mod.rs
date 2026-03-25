@@ -7,6 +7,10 @@ use crate::server::{Context, Handler, RequestMethod, Response, Result};
 use std::path::PathBuf;
 
 /// Handler for `GET /` — returns 200 OK with a plain text body.
+///
+/// Not used in production routing (the StaticFileHandler fallback serves all paths).
+/// Retained for unit tests.
+#[cfg_attr(not(test), allow(dead_code))]
 pub struct RootHandler;
 
 impl Handler for RootHandler {
@@ -92,6 +96,13 @@ impl Handler for StaticFileHandler {
         // right side is absolute, so the relative form is required.
         let rel = decoded.trim_start_matches('/');
         let candidate = self.canonical_root.join(rel);
+
+        // If the candidate path is a directory, attempt to serve index.html inside it.
+        let candidate = if candidate.is_dir() {
+            candidate.join("index.html")
+        } else {
+            candidate
+        };
 
         // Canonicalize the candidate to resolve symlinks and any remaining traversal.
         // NotFound from canonicalize means the file doesn't exist → 404.

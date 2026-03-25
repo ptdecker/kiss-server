@@ -45,6 +45,10 @@ impl Router {
     ///
     /// Routes are checked in registration order; first match wins.
     /// Returns `Err` if `method` is not a valid HTTP method string.
+    ///
+    /// Not called from production `main()` (all requests go to the StaticFileHandler fallback).
+    /// Retained for tests and future use.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn add(&mut self, method: &str, path: &str, handler: impl Handler + 'static) -> Result<()> {
         let method = RequestMethod::try_from(method)?;
         self.routes

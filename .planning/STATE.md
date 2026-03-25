@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: planning
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-10T21:24:56.799Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-24T20:58:54.139Z"
 last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
 progress:
   total_phases: 7
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 0
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 7
   percent: 0
 ---
 
@@ -35,6 +35,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 ## Performance Metrics
 
 **Velocity (v1.0 reference):**
+
 - Total plans completed: 16
 - Average duration: ~5 min
 - Total execution time: ~1.3 hours
@@ -53,6 +54,11 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 **Recent Trend:** Stable
 
 *Updated after each plan completion*
+| Phase 07-branch-protection P01 | 3 | 3 tasks | 1 files |
+| Phase 08-aws-infrastructure P01 | 10 | 3 tasks | 0 files |
+| Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
+| Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
+| Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -66,6 +72,16 @@ Recent decisions affecting current work:
 - Roadmap: Use t3.micro x86_64 (not t4g arm64) — CI runner is x86_64; architecture mismatch causes silent green-CI / broken-prod failure
 - Roadmap: CD health check is non-negotiable — systemctl restart exits 0 even on immediate crash; must follow with systemctl is-active check
 - Roadmap: SCP to /tmp/ then atomic mv — never SCP over a running binary (SIGBUS risk)
+- [Phase 07-branch-protection]: GitHub Rulesets update endpoint uses PUT not PATCH (PATCH returns 404)
+- [Phase 07-branch-protection]: RepositoryRole actor_id 5 bypass_mode always preserves solo developer emergency push access to main
+- [Phase 08-aws-infrastructure]: Default VPC in us-east-1 was deleted — recreated via aws ec2 create-default-vpc; ID is vpc-0af357914ff0ad825
+- [Phase 08-aws-infrastructure]: AWS profile kiss configured for account 859953692821 in us-east-1; all aws CLI commands in this project use --profile kiss
+- [Phase 08-aws-infrastructure]: Elastic IP 54.83.192.65 allocated (eipalloc-0deaa59ab7bff907d) and associated with instance i-0394a6d927c0d9b33 — all downstream phases use this stable address
+- [Phase 08-aws-infrastructure]: Security Group sg-0cf50c46b18fd13f3 (kiss-server-sg): port 22 open to 0.0.0.0/0, key auth is sole gate; port 80 open to 0.0.0.0/0
+- [Phase 09-ec2-service-setup]: parse_root() wrapper removed — main() calls parse_root_from(&args) directly to share args with parse_port_from()
+- [Phase 09-ec2-service-setup]: log::debug and log::warn imports moved to server/mod.rs where macros are used; main.rs retains only log::info
+- [Phase 09-ec2-service-setup]: install-kiss-server.sh: 512MB swap file created first to prevent OOM during cargo build --release on t3.micro
+- [Phase 09-ec2-service-setup]: iptables INPUT ACCEPT for port 8080 required alongside port 80 — redirected traffic traverses INPUT chain on Amazon Linux 2023
 
 ### Pending Todos
 
@@ -79,6 +95,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T21:24:56.790Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-branch-protection/07-CONTEXT.md
+Last session: 2026-03-24T20:58:54.136Z
+Stopped at: Completed 09-02-PLAN.md
+Resume file: None
