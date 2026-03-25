@@ -85,7 +85,7 @@ CI (Phase 6), EC2 target (Phase 8), and systemd service (Phase 9) are complete p
 - `systemctl stop/start kiss-server` — Phase 9 systemd unit is the deploy target
 - `/usr/local/bin/kiss-server` — installed binary path (from Phase 9)
 - `--profile kiss` / `us-east-1` — AWS CLI context (not needed in CD, but relevant for context)
-- GitHub repo: ptdecker/ptodd (inferred) — `gh release create` will target this
+- GitHub repo: ptdecker/kiss-server (confirmed) — `gh release create` will target this
 
 </code_context>
 
