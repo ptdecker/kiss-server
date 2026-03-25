@@ -39,14 +39,6 @@ mod worker;
 /// Tread pool size
 const DEFAULT_POOL_SIZE: usize = 4;
 
-// TODO: HTTP/1.1 Support
-//  https://www.rfc-editor.org/rfc/rfc9110.txt (HTTP Semantics)
-//  https://www.rfc-editor.org/rfc/rfc9111.txt (Caching)
-//  https://www.rfc-editor.org/rfc/rfc9112.txt (HTTP/1.1)
-//      Older: https://www.rfc-editor.org/rfc/rfc2068.txt
-// TODO: URI: https://www.rfc-editor.org/rfc/rfc3986.txt
-//  https://www.rfc-editor.org/rfc/rfc6454.txt (origin rules)
-
 /// A server, which listens for incoming connections and handles them.
 #[derive(Debug)]
 pub struct Server {

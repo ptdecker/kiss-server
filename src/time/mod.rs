@@ -132,35 +132,6 @@ where
     year % 400 == 0
 }
 
-/// Determine the number of days in a month of a given year
-#[allow(dead_code)]
-pub fn days_in_month<T, U>(year: T, month: U) -> u8
-where
-    T: Into<u16>,
-    U: Into<Month>,
-{
-    match month.into() {
-        Month::January => 31,
-        Month::February => {
-            if is_leap_year(year.into()) {
-                29
-            } else {
-                28
-            }
-        }
-        Month::March => 31,
-        Month::April => 30,
-        Month::May => 31,
-        Month::June => 30,
-        Month::July => 31,
-        Month::August => 31,
-        Month::September => 30,
-        Month::October => 31,
-        Month::November => 30,
-        Month::December => 31,
-    }
-}
-
 /// Convert an epoch day count to a proleptic Gregorian calendar date.
 ///
 /// Uses Howard Hinnant's O(1) civil_from_days algorithm.
@@ -186,7 +157,6 @@ fn civil_from_days(epoch_days: i64) -> (i32, u8, u8) {
 /// Uses Howard Hinnant's weekday algorithm.
 /// Convention: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
 /// Verification: weekday_from_days(0) == 4 (1970-01-01 is Thursday)
-#[allow(dead_code)]
 fn weekday_from_days(z: i64) -> u8 {
     if z >= -4 {
         ((z + 4) % 7) as u8
@@ -222,41 +192,10 @@ impl DateTime {
         })
     }
 
-    /// The year
-    #[allow(dead_code)]
-    pub fn year(&self) -> u16 {
-        self.year
-    }
-
-    /// The month
-    #[allow(dead_code)]
-    pub fn month(&self) -> Month {
-        self.month
-    }
-
-    /// The day
-    #[allow(dead_code)]
-    pub fn day(&self) -> u8 {
-        self.day
-    }
-
-    /// The day of the year
-    #[allow(dead_code)]
-    pub fn day_of_year(&self) -> u16 {
-        self.day_of_year
-    }
-
-    /// Is it a leap year
-    #[allow(dead_code)]
-    pub fn is_leap_year(&self) -> bool {
-        is_leap_year(self.year)
-    }
-
     /// Format the date/time as an IMF-fixdate string per RFC 9110 Section 5.6.7.
     ///
     /// Example output: "Sun, 06 Nov 1994 08:49:37 GMT"
     /// The output is always exactly 29 characters long.
-    #[allow(dead_code)]
     #[allow(clippy::wrong_self_convention)]
     pub fn to_imf_fixdate(&self) -> String {
         const DAY_NAMES: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
