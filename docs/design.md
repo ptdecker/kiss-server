@@ -1,6 +1,6 @@
 # Architecture
 
-kiss-server is a from-scratch HTTP/1.1 static file server written in pure Rust. No external
+The kiss-server is a from-scratch HTTP/1.1 static file server written in pure Rust. No external
 dependencies beyond the `log` crate facade. This document explains the core design patterns and key
 decisions.
 
@@ -9,7 +9,7 @@ decisions.
 The request pipeline is built around three types that work together:
 
 - **Handler trait**: `fn handle(&self, ctx: &mut Context) -> Result<()>` — any struct implementing
-  Handler can process requests. In-place mutation of Context avoids reconstruction overhead.
+  Handler can process requests. In-place mutation of Context avoids future reconstruction overhead.
   Handlers must be `Send + Sync` because they are shared across worker threads via `Arc<Router>`.
   Returning `Err` causes the server to send a 500 response.
 
@@ -18,9 +18,9 @@ The request pipeline is built around three types that work together:
   from `ctx.request` and write the response into `ctx.response` in place.
 
 - **Router**: Maps URL paths to Handler implementations via a registration list. Routes are checked
-  in registration order; first match wins. Uses `set_fallback()` for the static file handler —
+  in registration order; the first match wins. Uses `set_fallback()` for the static file handler —
   unmatched routes fall through to file serving rather than returning 404 immediately. The safety
-  guard (dotdot rejection, invalid %-sequences) runs before any handler, including the fallback.
+  guard (dot-dot rejection, invalid %-sequences) runs before any handler, including the fallback.
 
 In production, no routes are registered on the router. The `StaticFileHandler` is installed as the
 fallback, so every request goes to file serving. Named routes exist for tests and future use.
@@ -31,27 +31,28 @@ fallback, so every request goes to file serving. Named routes exist for tests an
   handling.
 - Synchronous blocking I/O — each connection gets a thread from the pool for the full duration of
   handling.
-- No async runtime (no tokio). The thread pool is sufficient for the project's goals and keeps the
+- No async runtime (no tokio). The thread pool is enough for the project's goals and keeps the
   implementation simple.
 - Worker threads receive jobs via a shared `mpsc` channel behind a `Mutex<Receiver>`. Each worker
   holds `Arc<Mutex<Receiver<Job>>>` and calls `lock().unwrap_or_else(...)` to recover from mutex
   poison.
 - Graceful-ish shutdown: the `Drop` implementation drops the sender (closing the channel), then
-  joins all worker threads. `let _ = thread.join()` avoids panic propagation if a worker panicked.
+  joins all worker threads. `let _ = thread.join()` it avoids panic propagation if a worker
+  panicked.
 
 ## Static File Serving
 
 - `StaticFileHandler` implements the Handler trait and is installed as the router's fallback.
 - Serves files from a configurable root directory (`--root` CLI argument, required at startup).
 - Binary-safe reads — files are read as `Vec<u8>` via `fs::read()`, not as strings.
-- MIME detection from file extension (10 types: html, css, js, wasm, png, jpg/jpeg, gif, svg, ico,
-  txt; with `application/octet-stream` fallback).
+- MIME detection from file extension (10 types: `html`, `css`, `js`, `wasm`, `png`, `jpg`, `jpeg`,
+  `gif`, `svg`, `ico`, `txt`; with `application/octet-stream` fallback).
 - Directory requests automatically serve `index.html` from within that directory.
 - **Path traversal prevention**: `canonicalize()` the candidate path after joining with the root,
   then verify it `starts_with(canonical_root)`. Returns 404 (not 403) on traversal attempts to avoid
   leaking whether a path exists outside the root. Symlinks that escape the root are caught at this
   step.
-- The router also rejects dotdot components and invalid %-sequences before the handler is called,
+- The router also rejects dot-dot components and invalid %-sequences before the handler is called,
   providing defense in depth.
 
 ## Error Handling
