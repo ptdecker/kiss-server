@@ -49,9 +49,9 @@
 
 ### DOCS — Badge, Documentation, README
 
-- [ ] **DOCS-01**: README.md displays a GitHub Actions build status badge showing CI pass/fail
-- [ ] **DOCS-02**: `docs/ci-cd.md` documents how the CI and CD pipelines work and how to use them
-- [ ] **DOCS-03**: README.md is updated to reflect the project's current state, how to build/run, and how deployment works
+- [x] **DOCS-01**: README.md displays a GitHub Actions build status badge showing CI pass/fail
+- [x] **DOCS-02**: `docs/ci-cd.md` documents how the CI and CD pipelines work and how to use them
+- [x] **DOCS-03**: README.md is updated to reflect the project's current state, how to build/run, and how deployment works
 
 ## Future Requirements
 
@@ -98,9 +98,9 @@
 | CD-03 | Phase 11 | Complete |
 | CD-04 | Phase 11 | Complete |
 | CD-05 | Phase 11 | Complete |
-| DOCS-01 | Phase 12 | Pending |
-| DOCS-02 | Phase 12 | Pending |
-| DOCS-03 | Phase 12 | Pending |
+| DOCS-01 | Phase 12 | Complete |
+| DOCS-02 | Phase 12 | Complete |
+| DOCS-03 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 26 total
