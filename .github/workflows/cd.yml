@@ -1,0 +1,60 @@
+name: CD
+
+on:
+  push:
+    branches: [prod]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.93.1"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.EC2_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            target/release/kiss-server \
+            ec2-user@54.83.192.65:/tmp/kiss-server-new
+          ssh -i ~/.ssh/deploy_key ec2-user@54.83.192.65 \
+            "sudo systemctl stop kiss-server && \
+             sudo mv /tmp/kiss-server-new /usr/local/bin/kiss-server && \
+             sudo chmod +x /usr/local/bin/kiss-server && \
+             sudo systemctl start kiss-server"
+
+      - name: Verify service is active
+        run: |
+          ssh -i ~/.ssh/deploy_key ec2-user@54.83.192.65 \
+            "sudo systemctl is-active kiss-server"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deploy/${{ github.sha }}
+          name: "Deploy ${{ github.sha }}"
+          files: target/release/kiss-server
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
