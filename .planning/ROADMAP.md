@@ -137,7 +137,10 @@ Plans:
   1. The README.md header displays a GitHub Actions build status badge that reflects the current CI pass/fail state
   2. docs/ci-cd.md explains how to trigger CI, how to deploy via the prod branch, how to check EC2 service health, and how to set up the pipeline from scratch
   3. README.md accurately describes the project, how to build and run locally, and how deployment works
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 12-01-PLAN.md — Create scripts/README.md (8-script reference) and docs/design.md (architecture walkthrough)
+- [ ] 12-02-PLAN.md — Create docs/ci-cd.md (pipeline docs) and replace README.md (badge, description, build/run, deployment, architecture, scripts)
 
 ## Progress
 
@@ -160,4 +163,14 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
 | 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete    | 2026-03-25 |
 | 11. CD Pipeline | v1.1 | 2/2 | Complete    | 2026-03-25 |
-| 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
+| 12. Badge, Docs, README | v1.1 | 0/2 | Not started | - |
+
+### Phase 12.1: clean up in aisle 9 (INSERTED)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 12
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 12.1 to break down)
