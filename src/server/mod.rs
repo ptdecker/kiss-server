@@ -208,7 +208,10 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     }
 
     if ENABLE_POWERED_BY {
-        ctx.response.add_header("X-Powered-By", concat!("kiss-serve/", env!("CARGO_PKG_VERSION")));
+        ctx.response.add_header(
+            "X-Powered-By",
+            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
+        );
     }
 
     ctx.response.write_to(&mut stream)?;
