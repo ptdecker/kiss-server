@@ -47,9 +47,9 @@ A client can request any static file (HTML, CSS, JS, WASM, etc.) by path and rec
 - [x] ptodd.org domain routing (GoDaddy DNS + AWS networking) pointing to EC2 — Validated in Phase 10: dns-configuration
 - [ ] "Hello World" static site deployed on EC2 instance
 - [x] GitHub CD pipeline: prod branch → deploy to EC2 + create GitHub release — Validated in Phase 11: cd-pipeline
-- [ ] GitHub build status badge on repository
-- [ ] CI/CD documentation in docs/ directory
-- [ ] README.md updated to reflect project, CI/CD, and deployment
+- [x] GitHub build status badge on repository — Validated in Phase 12: badge-docs-readme
+- [x] CI/CD documentation in docs/ directory — Validated in Phase 12: badge-docs-readme
+- [x] README.md updated to reflect project, CI/CD, and deployment — Validated in Phase 12: badge-docs-readme
 
 ### Out of Scope
 
@@ -66,7 +66,7 @@ A client can request any static file (HTML, CSS, JS, WASM, etc.) by path and rec
 ## Context
 
 **v1.0 shipped 2026-03-10.** 2,525 lines of Rust (stdlib + `log` crate only). 6 phases, 16 plans, 106 commits.
-**v1.1 progress:** Phase 11 complete — CD pipeline live. Push to prod deploys kiss-server to EC2 and creates a GitHub Release.
+**v1.1 progress:** Phase 12 complete — documentation suite done. CI badge, scripts/README.md, docs/design.md, docs/ci-cd.md, and polished top-level README.md all in place.
 
 Tech stack: Rust, stdlib only + `log` crate (v0.4.20).
 Concurrency: Fixed thread pool, synchronous blocking I/O.
