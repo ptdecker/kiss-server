@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: Ready to plan
-stopped_at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
-last_updated: "2026-03-25T02:28:59.651Z"
+status: Ready to execute
+stopped_at: Completed 12.1-03-PLAN.md
+last_updated: "2026-03-25T17:07:18.743Z"
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 13
-  completed_plans: 11
+  total_phases: 9
+  completed_phases: 8
+  total_plans: 19
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 10.1 — rename-cargo-package-and-directory
+**Current focus:** Phase 12.1 — clean-up-in-aisle-9
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 12.1 (clean-up-in-aisle-9) — EXECUTING
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -56,12 +56,19 @@ Plan: Not started
 | Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
 | Phase 10 P01 | 525582 | 1 tasks | 1 files |
 | Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
+| Phase 11 P01 | 2 | 2 tasks | 2 files |
+| Phase 11 P02 | 13 | 3 tasks | 5 files |
+| Phase 12 P01 | 2 | 2 tasks | 2 files |
+| Phase 12 P02 | 2 | 2 tasks | 2 files |
+| Phase 12.1-clean-up-in-aisle-9 P02 | 4 | 2 tasks | 1 files |
+| Phase 12.1-clean-up-in-aisle-9 P03 | 3 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 10.1 inserted after Phase 10: rename cargo package and directory (URGENT)
+- Phase 12.1 inserted after Phase 12: clean up in aisle 9
 
 ### Decisions
 
@@ -88,6 +95,20 @@ Recent decisions affecting current work:
 - [Phase 10]: verify-dns.sh uses tail -1 on dig output for www CNAME resolution to handle multi-line output; wraps curl|grep in if/else to avoid set -e aborting on grep non-match
 - [Phase 10.1]: Option A EC2 migration: update script variables only; /opt/ptodd becomes safe orphan on next deploy run
 - [Phase 10.1]: Domain strings ptodd.org intentionally left unchanged in README, main.rs, and WEBROOT variable
+- [Phase 11]: Used softprops/action-gh-release@v2 for atomic tag+asset creation in CD pipeline
+- [Phase 11]: Static EC2_KNOWN_HOSTS secret over runtime ssh-keyscan to prevent TOFU risk
+- [Phase 11]: No required_status_checks on prod ruleset — prod is deploy target, CI gates belong on main
+- [Phase 11]: deploy/{sha} tag format distinguishes CD releases from future semver releases
+- [Phase 11]: Two PRs required to get all commits onto main: first PR missed 10 local-only commits; second PR resolved after rebasing
+- [Phase 11]: Prod deploy command: git push origin origin/main:prod (not from local branch)
+- [Phase 12]: Include all 14 key decisions from PROJECT.md in docs/design.md — all are legitimate design decisions explaining the codebase to a new reader
+- [Phase 12]: docs/ directory created to house architecture documentation separate from README
+- [Phase 12]: Placed CI badge on line 1 before title heading per D-01 (standard OSS convention)
+- [Phase 12]: docs/ci-cd.md references scripts/README.md for script details instead of inlining content per D-05
+- [Phase 12.1-02]: test.js was untracked (shown as ?? in git status), so plain rm was used instead of git rm
+- [Phase 12.1-02]: .planning/ untracked via git rm -r --cached; files remain intact on disk; .gitignore prevents re-tracking
+- [Phase 12.1-clean-up-in-aisle-9]: actions/checkout@v4.2.2 and softprops/action-gh-release@v2.2.1 pinned for Node.js 24 compatibility
+- [Phase 12.1-clean-up-in-aisle-9]: CD fails hard if no vX.Y.Z tag on HEAD or no CHANGELOG entry — deployment without semver tag and CHANGELOG entry is prohibited
 
 ### Pending Todos
 
@@ -101,6 +122,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T02:25:49.054Z
-Stopped at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
+Last session: 2026-03-25T17:07:18.740Z
+Stopped at: Completed 12.1-03-PLAN.md
 Resume file: None

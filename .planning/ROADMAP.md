@@ -23,141 +23,228 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 
 ### 🚧 v1.1 Ops & Deployment (In Progress)
 
-**Milestone Goal:** kiss-server runs live at ptodd.org — automated build verification, branch protection, AWS deployment, domain routing, and continuous deployment from the prod branch.
+**Milestone Goal:** kiss-server runs live at ptodd.org — automated build verification, branch
+protection, AWS deployment, domain routing, and continuous deployment from the prod branch.
 
-- [x] **Phase 6: CI Pipeline** — GitHub Actions workflow that lints, builds, and tests on every push and PR (completed 2026-03-10)
-- [x] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge (completed 2026-03-11)
-- [ ] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group
-- [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site (completed 2026-03-24)
-- [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (completed 2026-03-24)
-- [ ] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release
-- [ ] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README
+- [x] **Phase 6: CI Pipeline** — GitHub Actions workflow that lints, builds, and tests on every push
+  and PR (completed 2026-03-10)
+- [x] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge (
+  completed 2026-03-11)
+- [x] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group (completed
+  2026-03-24)
+- [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World
+  site (completed 2026-03-24)
+- [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (
+  completed 2026-03-24)
+- [x] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub
+  Release (completed 2026-03-25)
+- [x] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README (
+  completed 2026-03-25)
 
 ## Phase Details
 
 ### Phase 6: CI Pipeline
-**Goal**: Every push and pull request is automatically verified — formatting, lint, and tests must pass before code can merge
+
+**Goal**: Every push and pull request is automatically verified — formatting, lint, and tests must
+pass before code can merge
 **Depends on**: Nothing (first v1.1 phase)
 **Requirements**: CI-01, CI-02, CI-03, CI-04, CI-05, CI-06
 **Success Criteria** (what must be TRUE):
-  1. Pushing to main or a milestone branch triggers a CI run visible in the GitHub Actions tab
-  2. Opening a PR to main triggers a CI run and posts a status check on the PR
-  3. A PR with a formatting error, clippy warning, or failing test shows a red status check and cannot be merged
-  4. The Rust toolchain version is pinned in rust-toolchain.toml so CI uses a fixed version regardless of upstream releases
-  5. CI completes faster on repeated runs because Cargo registry and build artifacts are restored from cache
-**Plans**: 2 plans
-Plans:
-- [ ] 06-01-PLAN.md — Create rust-toolchain.toml, scripts/ci.sh, and .github/workflows/ci.yml; delete rust.yml
-- [ ] 06-02-PLAN.md — Push to GitHub, verify first CI run green, verify failure gates and cache
+
+1. Pushing to main or a milestone branch triggers a CI run visible in the GitHub Actions tab
+2. Opening a PR to main triggers a CI run and posts a status check on the PR
+3. A PR with a formatting error, clippy warning, or failing test shows a red status check and cannot
+   be merged
+4. The Rust toolchain version is pinned in rust-toolchain.toml so CI uses a fixed version regardless
+   of upstream releases
+5. CI completes faster on repeated runs because Cargo registry and build artifacts are restored from
+   cache
+   **Plans**: 2 plans
+   Plans:
+
+- [x] 06-01-PLAN.md — Create rust-toolchain.toml, scripts/ci.sh, and .github/workflows/ci.yml;
+  delete rust.yml
+- [x] 06-02-PLAN.md — Push to GitHub, verify first CI run green, verify failure gates and cache
 
 ### Phase 7: Branch Protection
-**Goal**: Direct pushes to main are blocked — all changes must arrive via a PR with a passing CI check
-**Depends on**: Phase 6 (CI must have run at least once for the check name to appear in GitHub's registry)
+
+**Goal**: Direct pushes to main are blocked — all changes must arrive via a PR with a passing CI
+check
+**Depends on**: Phase 6 (CI must have run at least once for the check name to appear in GitHub's
+registry)
 **Requirements**: BRANCH-01, BRANCH-02
 **Success Criteria** (what must be TRUE):
-  1. Attempting to push a commit directly to main is rejected by GitHub
-  2. A PR to main cannot be merged until the CI status check reports passing
-  3. The branch protection rule does not lock out the solo developer (admin bypass is not disabled)
-**Plans**: 1 plan
-Plans:
-- [ ] 07-01-PLAN.md — Set merge strategy, create idempotent setup-branch-protection.sh, apply ruleset live, verify direct push blocked and PR merge gated on CI
+
+1. Attempting to push a commit directly to main is rejected by GitHub
+2. A PR to main cannot be merged until the CI status check reports passing
+3. The branch protection rule does not lock out the solo developer (admin bypass is not disabled)
+   **Plans**: 1 plan
+   Plans:
+
+- [x] 07-01-PLAN.md — Set merge strategy, create idempotent setup-branch-protection.sh, apply
+  ruleset live, verify direct push blocked and PR merge gated on CI
 
 ### Phase 8: AWS Infrastructure
-**Goal**: A stable, accessible EC2 instance exists with a permanent public IP and correct network access rules
+
+**Goal**: A stable, accessible EC2 instance exists with a permanent public IP and correct network
+access rules
 **Depends on**: Nothing (can run in parallel with Phase 7; must complete before Phase 9)
 **Requirements**: INFRA-01, INFRA-02, INFRA-03
 **Success Criteria** (what must be TRUE):
-  1. An EC2 t3.micro instance (Amazon Linux 2023, x86_64) is running and reachable via SSH from the developer's IP
-  2. An Elastic IP is allocated and associated with the instance — the IP does not change across stop/start cycles
-  3. Port 80 accepts connections from any IP; port 22 accepts connections only from authorized IPs
-**Plans**: 2 plans
-Plans:
-- [x] 08-01-PLAN.md — Install AWS CLI v2, configure kiss profile credentials, verify default VPC exists
-- [x] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH access
+
+1. An EC2 t3.micro instance (Amazon Linux 2023, x86_64) is running and reachable via SSH from the
+   developer's IP
+2. An Elastic IP is allocated and associated with the instance — the IP does not change across
+   stop/start cycles
+3. Port 80 accepts connections from any IP; port 22 accepts connections only from authorized IPs
+   **Plans**: 2 plans
+   Plans:
+
+- [x] 08-01-PLAN.md — Install AWS CLI v2, configure kiss profile credentials, verify default VPC
+  exists
+- [x] 08-02-PLAN.md — Write and run scripts/setup-aws-infra.sh, provision EC2/SG/EIP, verify SSH
+  access
 
 ### Phase 9: EC2 Service Setup
-**Goal**: kiss-server runs as a managed systemd service on EC2 and serves a Hello World page on port 80
+
+**Goal**: kiss-server runs as a managed systemd service on EC2 and serves a Hello World page on port
+80
 **Depends on**: Phase 8 (EC2 instance must exist)
 **Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03, DEPLOY-04, DEPLOY-05
 **Success Criteria** (what must be TRUE):
-  1. The kiss-server binary is installed at /usr/local/bin/kiss-server on the EC2 instance
-  2. The kiss-server systemd service starts automatically on boot and restarts on failure without manual intervention
-  3. curl http://[elastic-ip]/ returns 200 with the Hello World page content
-  4. The service runs as a non-root user — port 80 traffic reaches it via iptables redirect from 80 to 8080
-  5. /var/www/ptodd.org/index.html exists and is the file served at the root path
-**Plans**: 3 plans
-Plans:
+
+1. The kiss-server binary is installed at /usr/local/bin/kiss-server on the EC2 instance
+2. The kiss-server systemd service starts automatically on boot and restarts on failure without
+   manual intervention
+3. curl http://[elastic-ip]/ returns 200 with the Hello World page content
+4. The service runs as a non-root user — port 80 traffic reaches it via iptables redirect from 80 to
+   8080
+5. /var/www/ptodd.org/index.html exists and is the file served at the root path
+   **Plans**: 3 plans
+   Plans:
+
 - [x] 09-01-PLAN.md — Add --port flag and 0.0.0.0 bind to src/main.rs (TDD, with unit tests)
 - [x] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
-- [x] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
+- [x] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human
+  verify
 
 ### Phase 10: DNS Configuration
-**Goal**: ptodd.org and www.ptodd.org resolve to the EC2 instance and return the Hello World page in a browser
-**Depends on**: Phase 8 (Elastic IP must exist as the A record target), Phase 9 (EC2 must be responding on port 80)
+
+**Goal**: ptodd.org and www.ptodd.org resolve to the EC2 instance and return the Hello World page in
+a browser
+**Depends on**: Phase 8 (Elastic IP must exist as the A record target), Phase 9 (EC2 must be
+responding on port 80)
 **Requirements**: DNS-01, DNS-02, DNS-03
 **Success Criteria** (what must be TRUE):
-  1. A GoDaddy A record for @ (ptodd.org) points to the Elastic IP
-  2. A GoDaddy CNAME for www points to @ so www.ptodd.org also resolves
-  3. Opening http://ptodd.org/ and http://www.ptodd.org/ in a browser returns the Hello World page
-**Plans**: 2 plans
-Plans:
-- [x] 10-01-PLAN.md — Write scripts/verify-dns.sh smoke test for A record, CNAME, and HTTP content checks
-- [ ] 10-02-PLAN.md — Configure GoDaddy DNS records (manual), verify with verify-dns.sh and browser
+
+1. A GoDaddy A record for @ (ptodd.org) points to the Elastic IP
+2. A GoDaddy CNAME for www points to @ so www.ptodd.org also resolves
+3. Opening http://ptodd.org/ and http://www.ptodd.org/ in a browser returns the Hello World page
+   **Plans**: 2 plans
+   Plans:
+
+- [x] 10-01-PLAN.md — Write scripts/verify-dns.sh smoke test for A record, CNAME, and HTTP content
+  checks
+- [x] 10-02-PLAN.md — Configure GoDaddy DNS records (manual), verify with verify-dns.sh and browser
 
 ### Phase 10.1: Rename Cargo Package and Directory (INSERTED)
 
-**Goal:** Cargo package renamed from ptodd to kiss-server so the compiled binary matches the deployed service name without a post-build rename step
+**Goal:** Cargo package renamed from ptodd to kiss-server so the compiled binary matches the
+deployed service name without a post-build rename step
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08
 **Depends on:** Phase 10
 **Plans:** 1/1 plans complete
 
 Plans:
-- [x] 10.1-01-PLAN.md — Rename Cargo package to kiss-server, update install script clone dir and binary source, clean up remaining references in Justfile/README/src
+
+- [x] 10.1-01-PLAN.md — Rename Cargo package to kiss-server, update install script clone dir and
+  binary source, clean up remaining references in Justfile/README/src
 
 ### Phase 11: CD Pipeline
-**Goal**: Pushing to the prod branch automatically builds, deploys, and releases kiss-server to EC2 with a verified health check
-**Depends on**: Phase 6 (CI workflow and cache infrastructure), Phase 8 (EC2 SSH target), Phase 9 (systemd service exists to stop/start)
+
+**Goal**: Pushing to the prod branch automatically builds, deploys, and releases kiss-server to EC2
+with a verified health check
+**Depends on**: Phase 6 (CI workflow and cache infrastructure), Phase 8 (EC2 SSH target), Phase 9 (
+systemd service exists to stop/start)
 **Requirements**: CD-01, CD-02, CD-03, CD-04, CD-05
 **Success Criteria** (what must be TRUE):
-  1. Pushing a commit to the prod branch triggers the CD workflow in GitHub Actions
-  2. The CD pipeline builds a release binary using cargo build --release on the CI runner
-  3. The binary is deployed atomically — SCP to /tmp/, service stopped, binary replaced via mv, service started
-  4. The pipeline fails and surfaces an error if the service is not active after deployment (systemctl is-active check)
-  5. A GitHub Release tagged with the prod commit SHA is created with the compiled binary attached as an asset
-**Plans**: 2 plans
-Plans:
-- [ ] 11-01-PLAN.md — Create cd.yml workflow and setup-prod-protection.sh script
-- [ ] 11-02-PLAN.md — Set GitHub secrets, create prod branch, apply protection, trigger and verify first deploy
+
+1. Pushing a commit to the prod branch triggers the CD workflow in GitHub Actions
+2. The CD pipeline builds a release binary using cargo build --release on the CI runner
+3. The binary is deployed atomically — SCP to /tmp/, service stopped, binary replaced via mv,
+   service started
+4. The pipeline fails and surfaces an error if the service is not active after deployment (systemctl
+   is-active check)
+5. A GitHub Release tagged with the prod commit SHA is created with the compiled binary attached as
+   an asset
+   **Plans**: 2 plans
+   Plans:
+
+- [x] 11-01-PLAN.md — Create cd.yml workflow and setup-prod-protection.sh script
+- [x] 11-02-PLAN.md — Set GitHub secrets, create prod branch, apply protection, trigger and verify
+  first deploy
 
 ### Phase 12: Badge, Docs, README
-**Goal**: The repository communicates its current state — CI status is visible at a glance, and the pipeline is documented for future reference
+
+**Goal**: The repository communicates its current state — CI status is visible at a glance, and the
+pipeline is documented for future reference
 **Depends on**: Phase 6 (CI workflow file must exist for the badge URL to resolve)
 **Requirements**: DOCS-01, DOCS-02, DOCS-03
 **Success Criteria** (what must be TRUE):
-  1. The README.md header displays a GitHub Actions build status badge that reflects the current CI pass/fail state
-  2. docs/ci-cd.md explains how to trigger CI, how to deploy via the prod branch, how to check EC2 service health, and how to set up the pipeline from scratch
-  3. README.md accurately describes the project, how to build and run locally, and how deployment works
-**Plans**: TBD
+
+1. The README.md header displays a GitHub Actions build status badge that reflects the current CI
+   pass/fail state
+2. docs/ci-cd.md explains how to trigger CI, how to deploy via the prod branch, how to check EC2
+   service health, and how to set up the pipeline from scratch
+3. README.md accurately describes the project, how to build and run locally, and how deployment
+   works
+   **Plans**: 2 plans
+   Plans:
+
+- [x] 12-01-PLAN.md — Create scripts/README.md (8-script reference) and docs/design.md (architecture
+  walkthrough)
+- [x] 12-02-PLAN.md — Create docs/ci-cd.md (pipeline docs) and replace README.md (badge,
+  description, build/run, deployment, architecture, scripts)
+
+### Phase 12.1: Clean Up in Aisle 9 (INSERTED)
+
+**Goal:** Remove dead code, clean repo root, fix gitignore, delete TODO comments (replaced with
+GitHub issues #24/#25), fix CI/CD action deprecation warnings, overhaul GitHub Release naming with
+semver and CHANGELOG enforcement, replace "/" prose shorthand in user-facing markdown with proper
+English, expand and document the Justfile, and add an opt-in `X-Powered-By: kiss-serve/x.y.z`
+response header (compile-time constant). Minimal new behavior; no feature scope creep.
+**Requirements**: D-01 through D-32 (see 12.1-CONTEXT.md)
+**Depends on:** Phase 12
+**Plans:** 2/4 plans executed
+
+Plans:
+
+- [ ] 12.1-01-PLAN.md — Dead code cleanup, TODO deletion, X-Powered-By header (Rust source changes)
+- [x] 12.1-02-PLAN.md — Repo root cleanup, gitignore updates, untrack .planning/ from git
+- [x] 12.1-03-PLAN.md — CI/CD action version bumps, CHANGELOG.md, semver release pipeline overhaul
+- [ ] 12.1-04-PLAN.md — Justfile expansion, markdown slash replacement, Just command documentation
 
 ## Progress
 
 **Execution Order:** Phases execute in numeric order: 6 → 7 → 8 → 9 → 10 → 10.1 → 11 → 12
 
-Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is green. The ordering above places them sequentially for clarity.
+Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is green. The ordering
+above places them sequentially for clarity.
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 1. Foundation Fixes | v1.0 | 2/2 | Complete | 2026-03-01 |
-| 2. Response and HTTP Compliance | v1.0 | 3/3 | Complete | 2026-03-02 |
-| 3. Handler, Context, and Router | v1.0 | 3/3 | Complete | 2026-03-02 |
-| 4. URL Path Safety | v1.0 | 1/1 | Complete | 2026-03-02 |
-| 5. Static File Serving | v1.0 | 5/5 | Complete | 2026-03-10 |
-| 5.1. Address Tech Debt | v1.0 | 2/2 | Complete | 2026-03-10 |
-| 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
-| 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
-| 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
-| 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
-| 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
-| 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete    | 2026-03-25 |
-| 11. CD Pipeline | v1.1 | 0/2 | Planned | - |
-| 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
+| Phase                           | Milestone | Plans Complete | Status   | Completed  |
+|---------------------------------|-----------|----------------|----------|------------|
+| 1. Foundation Fixes             | v1.0      | 2/2            | Complete | 2026-03-01 |
+| 2. Response and HTTP Compliance | v1.0      | 3/3            | Complete | 2026-03-02 |
+| 3. Handler, Context, and Router | v1.0      | 3/3            | Complete | 2026-03-02 |
+| 4. URL Path Safety              | v1.0      | 1/1            | Complete | 2026-03-02 |
+| 5. Static File Serving          | v1.0      | 5/5            | Complete | 2026-03-10 |
+| 5.1. Address Tech Debt          | v1.0      | 2/2            | Complete | 2026-03-10 |
+| 6. CI Pipeline                  | v1.1      | 2/2            | Complete | 2026-03-10 |
+| 7. Branch Protection            | v1.1      | 1/1            | Complete | 2026-03-11 |
+| 8. AWS Infrastructure           | v1.1      | 2/2            | Complete | 2026-03-24 |
+| 9. EC2 Service Setup            | v1.1      | 3/3            | Complete | 2026-03-24 |
+| 10. DNS Configuration           | v1.1      | 2/2            | Complete | 2026-03-24 |
+| 10.1. Rename Cargo Package      | v1.1      | 1/1            | Complete | 2026-03-25 |
+| 11. CD Pipeline                 | v1.1      | 2/2            | Complete | 2026-03-25 |
+| 12. Badge, Docs, README         | v1.1      | 2/2            | Complete | 2026-03-24 |
+| 12.1. Clean Up in Aisle 9       | v1.1      | 2/4 | In Progress|  |
