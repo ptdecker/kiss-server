@@ -23,9 +23,14 @@ jobs:
           cache-on-failure: "true"
       - name: Check version consistency
         run: |
+          set -euo pipefail
           CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "import sys,json; print(json.load(sys.stdin)['packages'][0]['version'])")
           CHANGELOG_VERSION=$(grep -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | head -1 | sed 's/^## \[\(.*\)\].*/\1/')
-          if [ "$CARGO_VERSION" != "$CHANGELOG_VERSION" ]; then
+          if [ -z "${CARGO_VERSION}" ] || [ -z "${CHANGELOG_VERSION}" ]; then
+            echo "::error::Failed to determine versions: Cargo.toml='${CARGO_VERSION:-}' CHANGELOG.md='${CHANGELOG_VERSION:-}'"
+            exit 1
+          fi
+          if [ "${CARGO_VERSION}" != "${CHANGELOG_VERSION}" ]; then
             echo "::error::Version mismatch: Cargo.toml=${CARGO_VERSION} but latest CHANGELOG.md entry=${CHANGELOG_VERSION}"
             exit 1
           fi
