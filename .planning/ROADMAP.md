@@ -28,8 +28,8 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 - [x] **Phase 6: CI Pipeline** — GitHub Actions workflow that lints, builds, and tests on every push and PR (completed 2026-03-10)
 - [x] **Phase 7: Branch Protection** — main branch requires PR and passing CI before merge (completed 2026-03-11)
 - [ ] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group
-- [ ] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site
-- [ ] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy
+- [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site (completed 2026-03-24)
+- [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (completed 2026-03-24)
 - [ ] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release
 - [ ] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README
 
@@ -89,7 +89,7 @@ Plans:
 Plans:
 - [x] 09-01-PLAN.md — Add --port flag and 0.0.0.0 bind to src/main.rs (TDD, with unit tests)
 - [x] 09-02-PLAN.md — Write install-kiss-server.sh, setup-webroot.sh, and setup-iptables.sh
-- [ ] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
+- [x] 09-03-PLAN.md — Execute scripts on EC2 via SSH, smoke-test all DEPLOY requirements, human verify
 
 ### Phase 10: DNS Configuration
 **Goal**: ptodd.org and www.ptodd.org resolve to the EC2 instance and return the Hello World page in a browser
@@ -99,7 +99,20 @@ Plans:
   1. A GoDaddy A record for @ (ptodd.org) points to the Elastic IP
   2. A GoDaddy CNAME for www points to @ so www.ptodd.org also resolves
   3. Opening http://ptodd.org/ and http://www.ptodd.org/ in a browser returns the Hello World page
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 10-01-PLAN.md — Write scripts/verify-dns.sh smoke test for A record, CNAME, and HTTP content checks
+- [ ] 10-02-PLAN.md — Configure GoDaddy DNS records (manual), verify with verify-dns.sh and browser
+
+### Phase 10.1: Rename Cargo Package and Directory (INSERTED)
+
+**Goal:** Cargo package renamed from ptodd to kiss-server so the compiled binary matches the deployed service name without a post-build rename step
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08
+**Depends on:** Phase 10
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 10.1-01-PLAN.md — Rename Cargo package to kiss-server, update install script clone dir and binary source, clean up remaining references in Justfile/README/src
 
 ### Phase 11: CD Pipeline
 **Goal**: Pushing to the prod branch automatically builds, deploys, and releases kiss-server to EC2 with a verified health check
@@ -111,7 +124,10 @@ Plans:
   3. The binary is deployed atomically — SCP to /tmp/, service stopped, binary replaced via mv, service started
   4. The pipeline fails and surfaces an error if the service is not active after deployment (systemctl is-active check)
   5. A GitHub Release tagged with the prod commit SHA is created with the compiled binary attached as an asset
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Create cd.yml workflow and setup-prod-protection.sh script
+- [ ] 11-02-PLAN.md — Set GitHub secrets, create prod branch, apply protection, trigger and verify first deploy
 
 ### Phase 12: Badge, Docs, README
 **Goal**: The repository communicates its current state — CI status is visible at a glance, and the pipeline is documented for future reference
@@ -125,7 +141,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** Phases execute in numeric order: 6 → 7 → 8 → 9 → 10 → 11 → 12
+**Execution Order:** Phases execute in numeric order: 6 → 7 → 8 → 9 → 10 → 10.1 → 11 → 12
 
 Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is green. The ordering above places them sequentially for clarity.
 
@@ -140,7 +156,8 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 6. CI Pipeline | 2/2 | Complete   | 2026-03-10 | - |
 | 7. Branch Protection | 1/1 | Complete   | 2026-03-11 | - |
 | 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
-| 9. EC2 Service Setup | v1.1 | 2/3 | In Progress|  |
-| 10. DNS Configuration | v1.1 | 0/? | Not started | - |
-| 11. CD Pipeline | v1.1 | 0/? | Not started | - |
+| 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
+| 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
+| 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete    | 2026-03-25 |
+| 11. CD Pipeline | v1.1 | 0/2 | Planned | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |

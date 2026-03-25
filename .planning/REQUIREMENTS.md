@@ -35,9 +35,9 @@
 
 ### DNS — Domain Routing
 
-- [ ] **DNS-01**: GoDaddy A record for `@` (ptodd.org) points to the Elastic IP
-- [ ] **DNS-02**: GoDaddy CNAME for `www` points to `@` so `www.ptodd.org` also resolves
-- [ ] **DNS-03**: `http://ptodd.org/` and `http://www.ptodd.org/` return the Hello World page in a browser
+- [x] **DNS-01**: GoDaddy A record for `@` (ptodd.org) points to the Elastic IP
+- [x] **DNS-02**: GoDaddy CNAME for `www` points to `@` so `www.ptodd.org` also resolves
+- [x] **DNS-03**: `http://ptodd.org/` and `http://www.ptodd.org/` return the Hello World page in a browser
 
 ### CD — Continuous Deployment
 
@@ -90,9 +90,9 @@
 | DEPLOY-03 | Phase 9 | Complete |
 | DEPLOY-04 | Phase 9 | Complete |
 | DEPLOY-05 | Phase 9 | Complete |
-| DNS-01 | Phase 10 | Pending |
-| DNS-02 | Phase 10 | Pending |
-| DNS-03 | Phase 10 | Pending |
+| DNS-01 | Phase 10 | Complete |
+| DNS-02 | Phase 10 | Complete |
+| DNS-03 | Phase 10 | Complete |
 | CD-01 | Phase 11 | Pending |
 | CD-02 | Phase 11 | Pending |
 | CD-03 | Phase 11 | Pending |

@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: planning
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-24T20:58:54.139Z"
-last_activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
+status: Ready to plan
+stopped_at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
+last_updated: "2026-03-25T02:28:59.651Z"
 progress:
-  total_phases: 7
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 7
-  percent: 0
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 11
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 6 — CI Pipeline
+**Current focus:** Phase 10.1 — rename-cargo-package-and-directory
 
 ## Current Position
 
-Phase: 6 of 12 (CI Pipeline)
+Phase: 11
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-10 — v1.1 roadmap created; all 26 requirements mapped across 7 phases (6–12)
-
-Progress: [░░░░░░░░░░] 0% (v1.1)
 
 ## Performance Metrics
 
@@ -59,8 +53,15 @@ Progress: [░░░░░░░░░░] 0% (v1.1)
 | Phase 08-aws-infrastructure P02 | 20 | 3 tasks | 1 files |
 | Phase 09-ec2-service-setup P01 | 2 | 1 tasks | 2 files |
 | Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
+| Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
+| Phase 10 P01 | 525582 | 1 tasks | 1 files |
+| Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 10.1 inserted after Phase 10: rename cargo package and directory (URGENT)
 
 ### Decisions
 
@@ -82,6 +83,11 @@ Recent decisions affecting current work:
 - [Phase 09-ec2-service-setup]: log::debug and log::warn imports moved to server/mod.rs where macros are used; main.rs retains only log::info
 - [Phase 09-ec2-service-setup]: install-kiss-server.sh: 512MB swap file created first to prevent OOM during cargo build --release on t3.micro
 - [Phase 09-ec2-service-setup]: iptables INPUT ACCEPT for port 8080 required alongside port 80 — redirected traffic traverses INPUT chain on Amazon Linux 2023
+- [Phase 09-ec2-service-setup]: gcc (dnf install -y gcc) required before cargo build --release on fresh Amazon Linux 2023 — C linker absent on minimal image
+- [Phase 09-ec2-service-setup]: kiss-server deployment: SCP scripts to /tmp/, execute via SSH; script order is install-kiss-server.sh -> setup-webroot.sh -> setup-iptables.sh
+- [Phase 10]: verify-dns.sh uses tail -1 on dig output for www CNAME resolution to handle multi-line output; wraps curl|grep in if/else to avoid set -e aborting on grep non-match
+- [Phase 10.1]: Option A EC2 migration: update script variables only; /opt/ptodd becomes safe orphan on next deploy run
+- [Phase 10.1]: Domain strings ptodd.org intentionally left unchanged in README, main.rs, and WEBROOT variable
 
 ### Pending Todos
 
@@ -95,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:58:54.136Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-03-25T02:25:49.054Z
+Stopped at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
 Resume file: None

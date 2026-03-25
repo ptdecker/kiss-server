@@ -44,7 +44,7 @@ A client can request any static file (HTML, CSS, JS, WASM, etc.) by path and rec
 - [ ] GitHub Actions CI pipeline (lint + build + test) required to pass before PR merge
 - [ ] GitHub branch protection: PRs required for all changes to main
 - [ ] AWS EC2 instance running kiss-server as a managed service
-- [ ] ptodd.org domain routing (GoDaddy DNS + AWS networking) pointing to EC2
+- [x] ptodd.org domain routing (GoDaddy DNS + AWS networking) pointing to EC2 — Validated in Phase 10: dns-configuration
 - [ ] "Hello World" static site deployed on EC2 instance
 - [ ] GitHub CD pipeline: prod branch → deploy to EC2 + create GitHub release
 - [ ] GitHub build status badge on repository
@@ -116,4 +116,4 @@ Known non-blocking tech debt from v1.0:
 - README.md update
 
 ---
-*Last updated: 2026-03-10 after v1.1 milestone start*
+*Last updated: 2026-03-25 — Phase 10.1 complete: Cargo package renamed to kiss-server; `cargo build --release` now produces `target/release/kiss-server` directly*

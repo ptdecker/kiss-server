@@ -21,4 +21,4 @@ build-docs: lint
 
 # View the documentation
 docs: build-docs
-    @open target/doc/ptodd/index.html
+    @open target/doc/kiss-server/index.html
