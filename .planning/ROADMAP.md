@@ -109,10 +109,10 @@ Plans:
 **Goal:** Cargo package renamed from ptodd to kiss-server so the compiled binary matches the deployed service name without a post-build rename step
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08
 **Depends on:** Phase 10
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 10.1-01-PLAN.md — Rename Cargo package to kiss-server, update install script clone dir and binary source, clean up remaining references in Justfile/README/src
+- [x] 10.1-01-PLAN.md — Rename Cargo package to kiss-server, update install script clone dir and binary source, clean up remaining references in Justfile/README/src
 
 ### Phase 11: CD Pipeline
 **Goal**: Pushing to the prod branch automatically builds, deploys, and releases kiss-server to EC2 with a verified health check
@@ -158,6 +158,6 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 8. AWS Infrastructure | v1.1 | 1/2 | In Progress|  |
 | 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
 | 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
-| 10.1. Rename Cargo Package | v1.1 | 0/1 | Planned | - |
+| 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete   | 2026-03-25 |
 | 11. CD Pipeline | v1.1 | 0/2 | Planned | - |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |

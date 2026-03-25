@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: Ready to plan
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-24T23:46:19.999Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
+last_updated: "2026-03-25T02:25:49.058Z"
 progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 10 — dns-configuration
+**Current focus:** Phase 10.1 — rename-cargo-package-and-directory
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 10.1 (rename-cargo-package-and-directory) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -55,8 +55,13 @@ Plan: Not started
 | Phase 09-ec2-service-setup P02 | 2 | 3 tasks | 3 files |
 | Phase 09-ec2-service-setup P03 | 15 | 3 tasks | 1 files |
 | Phase 10 P01 | 525582 | 1 tasks | 1 files |
+| Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 10.1 inserted after Phase 10: rename cargo package and directory (URGENT)
 
 ### Decisions
 
@@ -81,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 09-ec2-service-setup]: gcc (dnf install -y gcc) required before cargo build --release on fresh Amazon Linux 2023 — C linker absent on minimal image
 - [Phase 09-ec2-service-setup]: kiss-server deployment: SCP scripts to /tmp/, execute via SSH; script order is install-kiss-server.sh -> setup-webroot.sh -> setup-iptables.sh
 - [Phase 10]: verify-dns.sh uses tail -1 on dig output for www CNAME resolution to handle multi-line output; wraps curl|grep in if/else to avoid set -e aborting on grep non-match
+- [Phase 10.1]: Option A EC2 migration: update script variables only; /opt/ptodd becomes safe orphan on next deploy run
+- [Phase 10.1]: Domain strings ptodd.org intentionally left unchanged in README, main.rs, and WEBROOT variable
 
 ### Pending Todos
 
@@ -94,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T21:38:44.391Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-25T02:25:49.054Z
+Stopped at: Completed 10.1-rename-cargo-package-and-directory-01-PLAN.md
 Resume file: None
