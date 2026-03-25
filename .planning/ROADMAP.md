@@ -31,7 +31,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 - [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site (completed 2026-03-24)
 - [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (completed 2026-03-24)
 - [x] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release (completed 2026-03-25)
-- [ ] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README
+- [x] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README (completed 2026-03-25)
 
 ## Phase Details
 
@@ -139,7 +139,7 @@ Plans:
   3. README.md accurately describes the project, how to build and run locally, and how deployment works
 **Plans**: 2 plans
 Plans:
-- [ ] 12-01-PLAN.md — Create scripts/README.md (8-script reference) and docs/design.md (architecture walkthrough)
+- [x] 12-01-PLAN.md — Create scripts/README.md (8-script reference) and docs/design.md (architecture walkthrough)
 - [ ] 12-02-PLAN.md — Create docs/ci-cd.md (pipeline docs) and replace README.md (badge, description, build/run, deployment, architecture, scripts)
 
 ## Progress
@@ -163,14 +163,14 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
 | 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete    | 2026-03-25 |
 | 11. CD Pipeline | v1.1 | 2/2 | Complete    | 2026-03-25 |
-| 12. Badge, Docs, README | v1.1 | 0/2 | Not started | - |
+| 12. Badge, Docs, README | v1.1 | 1/2 | Complete    | 2026-03-25 |
 
 ### Phase 12.1: clean up in aisle 9 (INSERTED)
 
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 12
-**Plans:** 0 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 12.1 to break down)

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
 status: Ready to plan
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-25T03:19:29.145Z"
+stopped_at: Completed 12-badge-docs-readme-02-PLAN.md
+last_updated: "2026-03-25T04:02:55.062Z"
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 9
+  completed_phases: 8
+  total_plans: 15
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
-**Current focus:** Phase 11 — cd-pipeline
+**Current focus:** Phase 12 — badge-docs-readme
 
 ## Current Position
 
-Phase: 12
+Phase: 12.1
 Plan: Not started
 
 ## Performance Metrics
@@ -58,12 +58,15 @@ Plan: Not started
 | Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
 | Phase 11 P01 | 2 | 2 tasks | 2 files |
 | Phase 11 P02 | 13 | 3 tasks | 5 files |
+| Phase 12 P01 | 2 | 2 tasks | 2 files |
+| Phase 12 P02 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 10.1 inserted after Phase 10: rename cargo package and directory (URGENT)
+- Phase 12.1 inserted after Phase 12: clean up in aisle 9
 
 ### Decisions
 
@@ -96,6 +99,10 @@ Recent decisions affecting current work:
 - [Phase 11]: deploy/{sha} tag format distinguishes CD releases from future semver releases
 - [Phase 11]: Two PRs required to get all commits onto main: first PR missed 10 local-only commits; second PR resolved after rebasing
 - [Phase 11]: Prod deploy command: git push origin origin/main:prod (not from local branch)
+- [Phase 12]: Include all 14 key decisions from PROJECT.md in docs/design.md — all are legitimate design decisions explaining the codebase to a new reader
+- [Phase 12]: docs/ directory created to house architecture documentation separate from README
+- [Phase 12]: Placed CI badge on line 1 before title heading per D-01 (standard OSS convention)
+- [Phase 12]: docs/ci-cd.md references scripts/README.md for script details instead of inlining content per D-05
 
 ### Pending Todos
 
@@ -109,6 +116,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T03:15:30.256Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-03-25T04:00:08.460Z
+Stopped at: Completed 12-badge-docs-readme-02-PLAN.md
 Resume file: None
