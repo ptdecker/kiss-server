@@ -39,13 +39,8 @@ mod worker;
 /// Tread pool size
 const DEFAULT_POOL_SIZE: usize = 4;
 
-// TODO: HTTP/1.1 Support
-//  https://www.rfc-editor.org/rfc/rfc9110.txt (HTTP Semantics)
-//  https://www.rfc-editor.org/rfc/rfc9111.txt (Caching)
-//  https://www.rfc-editor.org/rfc/rfc9112.txt (HTTP/1.1)
-//      Older: https://www.rfc-editor.org/rfc/rfc2068.txt
-// TODO: URI: https://www.rfc-editor.org/rfc/rfc3986.txt
-//  https://www.rfc-editor.org/rfc/rfc6454.txt (origin rules)
+/// When true, inject an X-Powered-By header into normal HTTP responses.
+const ENABLE_POWERED_BY: bool = true;
 
 /// A server, which listens for incoming connections and handles them.
 #[derive(Debug)]
@@ -212,6 +207,13 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         ctx.response.add_header("Date", &dt.to_imf_fixdate());
     }
 
+    if ENABLE_POWERED_BY {
+        ctx.response.add_header(
+            "X-Powered-By",
+            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
+        );
+    }
+
     ctx.response.write_to(&mut stream)?;
     Ok(())
 }
@@ -315,6 +317,33 @@ mod tests {
         assert!(
             response.contains("HTTP/1.1 404"),
             "expected 404, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn response_contains_x_powered_by_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        handle_connection(stream, Arc::new(router)).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("X-Powered-By: kiss-serve/"),
+            "expected X-Powered-By header, got: {:?}",
             response
         );
     }

@@ -13,7 +13,6 @@ pub struct Response {
     body: Vec<u8>,
 }
 
-#[allow(dead_code)]
 impl Response {
     /// Construct a new response with the given status code and reason phrase.
     pub fn new(status: u16, reason: &'static str) -> Self {

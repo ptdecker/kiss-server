@@ -1,6 +1,6 @@
 //! A basic URL parser with normalization
 
-use std::{fmt, str::from_utf8};
+use std::fmt;
 
 use super::*;
 
@@ -75,51 +75,50 @@ fn hex_char_to_byte(c: char) -> Result<u8> {
     }
 }
 
-// Helper function that encodes a UTF-8 Unicode character as an RTF-3986 Percent-Encoding (Cf.
-// section 2.1). Used only in tests.
-#[allow(dead_code)]
-fn pct_encode(uni_char: char) -> String {
-    let mut encoded = String::with_capacity(12);
-    for byte in uni_char.to_string().as_bytes() {
-        encoded.push_str(&format!("%{:02X}", byte));
-    }
-    encoded
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::from_utf8;
 
-// Helper function that takes a value stored in any type that can be referenced as a str.
-// If it contains an RTF 3986 Percent-Encoding of a valid UTF-8 Unicode character, that
-// character is returned as a char. Otherwise, and error is returned. Used only in tests.
-#[allow(dead_code)]
-fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
-    let mut chars = pct_encoded.as_ref().chars().peekable();
-    let mut bytes = Vec::<u8>::new();
-    while let Some(c) = chars.next() {
-        if c != '%' {
-            return Err("expected '%' and didn't find it".into());
+    // Helper function that encodes a UTF-8 Unicode character as an RTF-3986 Percent-Encoding (Cf.
+    // section 2.1). Used only in tests.
+    fn pct_encode(uni_char: char) -> String {
+        let mut encoded = String::with_capacity(12);
+        for byte in uni_char.to_string().as_bytes() {
+            encoded.push_str(&format!("%{:02X}", byte));
         }
-        let mut next_byte = hex_char_to_byte(
-            chars
-                .next()
-                .ok_or("invalid percentage encoding".to_string())?,
-        )?;
-        next_byte = (next_byte << 4)
-            + hex_char_to_byte(
+        encoded
+    }
+
+    // Helper function that takes a value stored in any type that can be referenced as a str.
+    // If it contains an RTF 3986 Percent-Encoding of a valid UTF-8 Unicode character, that
+    // character is returned as a char. Otherwise, and error is returned. Used only in tests.
+    fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
+        let mut chars = pct_encoded.as_ref().chars().peekable();
+        let mut bytes = Vec::<u8>::new();
+        while let Some(c) = chars.next() {
+            if c != '%' {
+                return Err("expected '%' and didn't find it".into());
+            }
+            let mut next_byte = hex_char_to_byte(
                 chars
                     .next()
                     .ok_or("invalid percentage encoding".to_string())?,
             )?;
-        bytes.push(next_byte);
+            next_byte = (next_byte << 4)
+                + hex_char_to_byte(
+                    chars
+                        .next()
+                        .ok_or("invalid percentage encoding".to_string())?,
+                )?;
+            bytes.push(next_byte);
+        }
+        Ok(from_utf8(&bytes)
+            .map_err(|_| "invalid UTF+8 unicode".to_string())?
+            .chars()
+            .next()
+            .ok_or("pct-decode internal error")?)
     }
-    Ok(from_utf8(&bytes)
-        .map_err(|_| "invalid UTF+8 unicode".to_string())?
-        .chars()
-        .next()
-        .ok_or("pct-decode internal error")?)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 
     #[test]
     fn path_strips_query() {

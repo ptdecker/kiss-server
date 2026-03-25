@@ -1,39 +1,56 @@
-# ptodd.org Backend Framework
+[![CI](https://github.com/ptdecker/kiss-server/actions/workflows/ci.yml/badge.svg)](https://github.com/ptdecker/kiss-server/actions/workflows/ci.yml)
 
-This is the repository for the front- and back-ends supporting ptodd.org.
+# kiss-server
 
-It is built "the hard way" intentionally avoiding third-party crates with a
-preference to implement all capabilities using only the standard library. The
-exception to this is the usage of the [log](https://crates.io/crates/log)
-crate as a facade over the included logging implementation.
+A from-scratch HTTP/1.1 static file server written in pure Rust with no external dependencies beyond the `log` crate facade. A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
 
-## Bare EC2 instance setup
+## Build & Run Locally
 
 ```bash
-sudo dnf install git-all
-sudo dnf install golang
-git clone https://github.com/cli/cli.git gh-cli
-cd gh-cli
-make install
-ssh-keygen -t rsa -b 4096 -C "ptdecker@mac.com"
-eval "$(ssh-agent -s)"
-ssh-add /home/ec2-user/.ssh/id_rsa
-cat ~/.ssh/id_rsa.pub
-git clone git@github.com:ptdecker/kiss-server.git
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-cargo install just
-just build
+cargo build --release
+./target/release/kiss-server --root /path/to/webroot
 ```
 
-## Error handling pattern
+The `--root` flag is required and specifies the directory to serve files from. The `--port` flag is optional (defaults to 6502).
 
-This repository uses the error handling pattern as discussed in [Jeremy Chone](https://jeremychone.com/)'s
-"[Rust Error Handling--Best Practices](https://www.youtube.com/watch?v=j-VQCYP7wyw)" YouTube video with the omission
-of the usage of the third-party [derive_more](https://jeltef.github.io/derive_more/derive_more/index.html) crate in
-keeping with this project's goal of avoiding third-party crates.
-(Cf. [Error Handling](https://rust10x.com/best-practices/error-handling))
+```bash
+# Example: serve the current directory on port 8080
+./target/release/kiss-server --root . --port 8080
+```
 
-## Learning Resources
+## Development
 
-* [How Unique Is Your Web Browser](https://share.evernote.com/note/30e0c841-bf39-4d3e-8eb0-ca325a60732a)
+[Just](https://github.com/casey/just) recipes for common tasks:
+
+```bash
+just lint          # Format and lint (cargo fmt + cargo clippy)
+just build         # Lint then build
+just run           # Lint, build, then run
+just test          # Lint, build, then test
+just build-docs    # Generate rustdoc
+just docs          # Generate and open rustdoc in browser
+```
+
+## Deployment
+
+kiss-server is live at [http://ptodd.org/](http://ptodd.org/) on an EC2 t3.micro instance (54.83.192.65).
+
+To deploy, update CHANGELOG.md with the release notes, then run:
+
+```bash
+just deploy 1.2.0  # tags v1.2.0 and pushes to prod
+```
+
+This triggers the CD pipeline which builds a release binary, deploys it to EC2, verifies the service is running, and creates a GitHub Release. See [docs/ci-cd.md](docs/ci-cd.md) for full pipeline documentation.
+
+## Architecture
+
+kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is built on Rust's standard library — no async runtime, no frameworks.
+
+See [docs/design.md](docs/design.md) for the full architecture walkthrough.
+
+## Scripts
+
+Automation scripts for infrastructure provisioning, CI/CD setup, and deployment verification live in the `scripts/` directory.
+
+See [scripts/README.md](scripts/README.md) for details on each script.
