@@ -116,4 +116,4 @@ Known non-blocking tech debt from v1.0:
 - README.md update
 
 ---
-*Last updated: 2026-03-24 — Phase 10 complete: ptodd.org and www.ptodd.org resolve to EC2, Hello World served at both URLs*
+*Last updated: 2026-03-25 — Phase 10.1 complete: Cargo package renamed to kiss-server; `cargo build --release` now produces `target/release/kiss-server` directly*
