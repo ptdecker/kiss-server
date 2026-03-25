@@ -27,9 +27,27 @@ use `git push --force-with-lease` (not `--force`) to push the working branch.
 - `scripts/` — automation scripts (see `scripts/README.md`)
 - `docs/` — design and CI/CD documentation
 - `.github/workflows/` — CI and CD pipelines
-- `.planning/` — GSD project management artifacts
+- `.planning/` — GSD project management artifacts (local only, gitignored)
 
 ## Testing
 
 All changes must pass `cargo test` (86 tests) before committing.
 Pre-commit hook runs the test suite automatically.
+
+## Just Commands
+
+Development:
+- `just lint` — format and lint (`cargo fmt` + `cargo clippy`)
+- `just build` — lint then build
+- `just run` — lint, build, then run
+- `just test` — lint, build, then test
+- `just build-docs` — lint then generate rustdoc
+- `just docs` — generate and open rustdoc in browser
+
+Infrastructure:
+- `just verify-dns` — run DNS smoke tests (`scripts/verify-dns.sh`)
+- `just branch-protection` — apply main branch protection rules (`scripts/setup-branch-protection.sh`)
+- `just prod-protection` — apply prod branch protection rules (`scripts/setup-prod-protection.sh`)
+
+Deployment:
+- `just deploy <VERSION>` — tag `vVERSION` and push to prod (e.g., `just deploy 1.2.0`)

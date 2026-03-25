@@ -18,14 +18,27 @@ The `--root` flag is required and specifies the directory to serve files from. T
 ./target/release/kiss-server --root . --port 8080
 ```
 
+## Development
+
+[Just](https://github.com/casey/just) recipes for common tasks:
+
+```bash
+just lint          # Format and lint (cargo fmt + cargo clippy)
+just build         # Lint then build
+just run           # Lint, build, then run
+just test          # Lint, build, then test
+just build-docs    # Generate rustdoc
+just docs          # Generate and open rustdoc in browser
+```
+
 ## Deployment
 
 kiss-server is live at [http://ptodd.org/](http://ptodd.org/) on an EC2 t3.micro instance (54.83.192.65).
 
-To deploy, promote main to the prod branch:
+To deploy, update CHANGELOG.md with the release notes, then run:
 
 ```bash
-git push origin origin/main:prod
+just deploy 1.2.0  # tags v1.2.0 and pushes to prod
 ```
 
 This triggers the CD pipeline which builds a release binary, deploys it to EC2, verifies the service is running, and creates a GitHub Release. See [docs/ci-cd.md](docs/ci-cd.md) for full pipeline documentation.

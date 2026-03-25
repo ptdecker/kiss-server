@@ -88,3 +88,12 @@ High-level steps to recreate the full infrastructure and pipeline from zero. See
 
 6. **Create prod branch:** `git push origin origin/main:prod` — this also triggers the first CD
    deployment.
+
+## Just Recipes
+
+Convenience recipes for pipeline and infrastructure operations:
+
+- `just deploy <VERSION>` — tag the current commit as `vVERSION` and push to prod, triggering the CD pipeline (e.g., `just deploy 1.2.0`)
+- `just verify-dns` — run DNS smoke tests for ptodd.org and www.ptodd.org
+- `just branch-protection` — apply or update main branch protection rules via GitHub API
+- `just prod-protection` — apply or update prod branch protection rules via GitHub API
