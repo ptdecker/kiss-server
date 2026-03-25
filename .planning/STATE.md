@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ops & Deployment
-status: Ready to execute
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-25T02:50:38.095Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-25T03:15:30.260Z"
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 13
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Plan: 2 of 2
 | Phase 10 P01 | 525582 | 1 tasks | 1 files |
 | Phase 10.1-rename-cargo-package-and-directory P01 | 2 | 2 tasks | 6 files |
 | Phase 11 P01 | 2 | 2 tasks | 2 files |
+| Phase 11 P02 | 13 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 11]: Static EC2_KNOWN_HOSTS secret over runtime ssh-keyscan to prevent TOFU risk
 - [Phase 11]: No required_status_checks on prod ruleset — prod is deploy target, CI gates belong on main
 - [Phase 11]: deploy/{sha} tag format distinguishes CD releases from future semver releases
+- [Phase 11]: Two PRs required to get all commits onto main: first PR missed 10 local-only commits; second PR resolved after rebasing
+- [Phase 11]: Prod deploy command: git push origin origin/main:prod (not from local branch)
 
 ### Pending Todos
 
@@ -106,6 +109,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T02:50:38.091Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-25T03:15:30.256Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None

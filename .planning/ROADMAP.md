@@ -30,7 +30,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.
 - [ ] **Phase 8: AWS Infrastructure** — EC2 instance with Elastic IP and Security Group
 - [x] **Phase 9: EC2 Service Setup** — kiss-server running as a systemd service with Hello World site (completed 2026-03-24)
 - [x] **Phase 10: DNS Configuration** — ptodd.org and www.ptodd.org routed to EC2 via GoDaddy (completed 2026-03-24)
-- [ ] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release
+- [x] **Phase 11: CD Pipeline** — prod branch push triggers automated deploy to EC2 and GitHub Release (completed 2026-03-25)
 - [ ] **Phase 12: Badge, Docs, README** — build badge, CI/CD documentation, and updated README
 
 ## Phase Details
@@ -126,8 +126,8 @@ Plans:
   5. A GitHub Release tagged with the prod commit SHA is created with the compiled binary attached as an asset
 **Plans**: 2 plans
 Plans:
-- [ ] 11-01-PLAN.md — Create cd.yml workflow and setup-prod-protection.sh script
-- [ ] 11-02-PLAN.md — Set GitHub secrets, create prod branch, apply protection, trigger and verify first deploy
+- [x] 11-01-PLAN.md — Create cd.yml workflow and setup-prod-protection.sh script
+- [x] 11-02-PLAN.md — Set GitHub secrets, create prod branch, apply protection, trigger and verify first deploy
 
 ### Phase 12: Badge, Docs, README
 **Goal**: The repository communicates its current state — CI status is visible at a glance, and the pipeline is documented for future reference
@@ -159,5 +159,5 @@ Note: Phase 8 has no dependency on Phase 7 and can begin once Phase 6 CI is gree
 | 9. EC2 Service Setup | v1.1 | 3/3 | Complete   | 2026-03-24 |
 | 10. DNS Configuration | v1.1 | 1/2 | Complete    | 2026-03-24 |
 | 10.1. Rename Cargo Package | v1.1 | 1/1 | Complete    | 2026-03-25 |
-| 11. CD Pipeline | v1.1 | 0/2 | Planned    |  |
+| 11. CD Pipeline | v1.1 | 2/2 | Complete   | 2026-03-25 |
 | 12. Badge, Docs, README | v1.1 | 0/? | Not started | - |
