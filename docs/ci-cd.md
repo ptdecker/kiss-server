@@ -22,19 +22,20 @@ kiss-server uses GitHub Actions for continuous integration and continuous deploy
 
 ## How to Deploy
 
-- **Trigger:** Push to the `prod` branch (configured in `.github/workflows/cd.yml`)
-- **Promote command:** `git push origin origin/main:prod` — pushes the current remote `main` to
-  `prod` without requiring a local checkout
+- **Trigger:** Push a semver tag (e.g., `v1.2.0`) to the repository — the CD pipeline triggers on
+  tags matching `v[0-9]+.[0-9]+.[0-9]+`
+- **Promote command:** `just deploy 1.2.0` — tags `v1.2.0`, validates the CHANGELOG entry, and
+  pushes the tag to trigger the pipeline. Requires a matching entry in `CHANGELOG.md`.
 - **What the CD pipeline does:**
-    1. Checks out the code and builds a release binary (`cargo build --release --locked`)
-    2. SCPs the binary to `/tmp/kiss-server-new` on EC2 (`ec2-user@54.83.192.65`)
-    3. Stops the `kiss-server` systemd service
-    4. Moves the binary to `/usr/local/bin/kiss-server` (atomic replacement)
-    5. Starts the service
-    6. Verifies the service is active (`sudo systemctl is-active kiss-server`) — the pipeline fails
-       if
-       this check fails
-    7. Creates a GitHub Release tagged `deploy/{sha}` with the compiled binary attached
+    1. Validates that `CHANGELOG.md` contains an entry for the tag version (fails fast if missing)
+    2. Checks out the code and builds a release binary (`cargo build --release --locked`)
+    3. SCPs the binary to `/tmp/kiss-server-new` on EC2 (`ec2-user@54.83.192.65`)
+    4. Stops the `kiss-server` systemd service
+    5. Moves the binary to `/usr/local/bin/kiss-server` (atomic replacement)
+    6. Starts the service
+    7. Verifies the service is active (`sudo systemctl is-active kiss-server`) — the pipeline fails
+       if this check fails
+    8. Creates a GitHub Release tagged `vX.Y.Z (short-sha)` with the compiled binary attached
 - **Verify after deploy:**
     - Check the GitHub Actions CD run for green status
     - `curl -s -o /dev/null -w '%{http_code}' http://ptodd.org/` should return `200`
