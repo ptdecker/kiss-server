@@ -310,4 +310,31 @@ mod tests {
             response
         );
     }
+
+    #[test]
+    fn response_contains_x_powered_by_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        handle_connection(stream, Arc::new(router)).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("X-Powered-By: kiss-serve/"),
+            "expected X-Powered-By header, got: {:?}",
+            response
+        );
+    }
 }
