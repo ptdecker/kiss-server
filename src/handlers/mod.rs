@@ -243,7 +243,7 @@ mod tests {
 
     // --- Helper: create a temp dir with a unique name ---
     fn make_temp_root(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("ptodd_test_{}", name));
+        let dir = std::env::temp_dir().join(format!("kiss_server_test_{}", name));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn new_nonexistent_path_returns_err() {
-        let path = std::env::temp_dir().join("ptodd_test_nonexistent_zzz_should_not_exist");
+        let path = std::env::temp_dir().join("kiss_server_test_nonexistent_zzz_should_not_exist");
         // Ensure it doesn't exist
         let _ = std::fs::remove_dir_all(&path);
         let result = StaticFileHandler::new(path);

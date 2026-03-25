@@ -19,7 +19,7 @@ ssh-keygen -t rsa -b 4096 -C "ptdecker@mac.com"
 eval "$(ssh-agent -s)"
 ssh-add /home/ec2-user/.ssh/id_rsa
 cat ~/.ssh/id_rsa.pub
-git clone git@github.com:ptdecker/ptodd.git
+git clone git@github.com:ptdecker/kiss-server.git
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 cargo install just
