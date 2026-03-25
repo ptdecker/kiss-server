@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Validate semver tag
         id: version
@@ -41,7 +42,7 @@ jobs:
           # Strip leading 'v' for CHANGELOG lookup: v1.1.0 -> 1.1.0
           VERSION="${TAG#v}"
           # Extract section between ## [VERSION] and the next ## [ heading
-          BODY=$(sed -n "/^## \[${VERSION}\]/,/^## \[/{/^## \[${VERSION}\]/d;/^## \[/d;p;}" CHANGELOG.md)
+          BODY=$(awk -v ver="$VERSION" '$0 == "## [" ver "]" { in=1; next } in && /^## \[/ { exit } in { print }' CHANGELOG.md)
           if [ -z "$BODY" ]; then
             echo "::error::CHANGELOG.md has no entry for version ${VERSION}. Add a ## [${VERSION}] section."
             exit 1
