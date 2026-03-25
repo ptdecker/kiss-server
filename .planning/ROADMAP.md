@@ -211,10 +211,18 @@ pipeline is documented for future reference
 **Goal:** Remove dead code, clean repo root, fix gitignore, delete TODO comments (replaced with
 GitHub issues #24/#25), fix CI/CD action deprecation warnings, overhaul GitHub Release naming with
 semver and CHANGELOG enforcement, replace "/" prose shorthand in user-facing markdown with proper
-English, and expand and document the Justfile. No new features. No changes to server behavior.
-**Requirements**: D-01 through D-31 (see 12.1-CONTEXT.md)
+English, expand and document the Justfile, and add an opt-in `X-Powered-By: kiss-serve/x.y.z`
+response header (compile-time constant). Minimal new behavior; no feature scope creep.
+**Requirements**: D-01 through D-32 (see 12.1-CONTEXT.md)
 **Depends on:** Phase 12
-**Plans:** 0 plans (context captured — run `/gsd:plan-phase 12.1` to create plans)
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 12.1-01-PLAN.md — Dead code cleanup, TODO deletion, X-Powered-By header (Rust source changes)
+- [ ] 12.1-02-PLAN.md — Repo root cleanup, gitignore updates, untrack .planning/ from git
+- [ ] 12.1-03-PLAN.md — CI/CD action version bumps, CHANGELOG.md, semver release pipeline overhaul
+- [ ] 12.1-04-PLAN.md — Justfile expansion, markdown slash replacement, Just command documentation
 
 ## Progress
 
@@ -239,4 +247,4 @@ above places them sequentially for clarity.
 | 10.1. Rename Cargo Package      | v1.1      | 1/1            | Complete | 2026-03-25 |
 | 11. CD Pipeline                 | v1.1      | 2/2            | Complete | 2026-03-25 |
 | 12. Badge, Docs, README         | v1.1      | 2/2            | Complete | 2026-03-24 |
-| 12.1. Clean Up in Aisle 9       | v1.1      | 0/?            | Planned  |            |
+| 12.1. Clean Up in Aisle 9       | v1.1      | 0/4            | Planned  |            |
