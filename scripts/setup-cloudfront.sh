@@ -28,7 +28,7 @@ set -euo pipefail
 
 PROFILE="kiss"
 CERT_ARN="arn:aws:acm:us-east-1:859953692821:certificate/5df0a174-daab-4126-9f12-67ac0d51a760"
-ORIGIN_DOMAIN="54.83.192.65"
+ORIGIN_DOMAIN="ec2-54-83-192-65.compute-1.amazonaws.com"
 COMMENT="kiss-server-www"
 
 # ─── Step 1: Idempotency check ────────────────────────────────────────────────
