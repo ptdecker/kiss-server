@@ -78,9 +78,11 @@ VALUE_WWW=$(aws acm describe-certificate \
   --query "Certificate.DomainValidationOptions[?DomainName=='www.ptodd.org'].ResourceRecord.Value | [0]" \
   --output text)
 
-# Strip domain suffix — GoDaddy requires subdomain prefix only (e.g., _abc123, not _abc123.ptodd.org)
-PREFIX_PTODD=$(echo "$NAME_PTODD" | sed 's/\..*//')
-PREFIX_WWW=$(echo "$NAME_WWW" | sed 's/\..*//')
+# Strip root domain suffix — GoDaddy requires the subdomain prefix relative to the zone root.
+# For ptodd.org records: _abc123.ptodd.org. → _abc123
+# For www.ptodd.org records: _abc123.www.ptodd.org. → _abc123.www
+PREFIX_PTODD=$(echo "$NAME_PTODD" | sed "s/\\.${DOMAIN}\\.*$//")
+PREFIX_WWW=$(echo "$NAME_WWW" | sed "s/\\.${DOMAIN}\\.*$//")
 
 # ─── Step 3: Validation instructions ──────────────────────────────────────────
 
