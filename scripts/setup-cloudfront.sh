@@ -72,7 +72,7 @@ if [ -z "$EXISTING_ID" ] || [ "$EXISTING_ID" = "None" ]; then
             "HTTPPort": 80,
             "HTTPSPort": 443,
             "OriginProtocolPolicy": "http-only",
-            "OriginSSLProtocols": {"Quantity": 0, "Items": []},
+            "OriginSslProtocols": {"Quantity": 0, "Items": []},
             "OriginReadTimeout": 30,
             "OriginKeepaliveTimeout": 5
           }
