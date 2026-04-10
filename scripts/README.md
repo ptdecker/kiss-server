@@ -17,6 +17,30 @@ Automation scripts for infrastructure provisioning, CI/CD setup, and deployment 
 | `setup-webroot.sh`           | Creates `/var/www/ptodd.org/` directory and writes Hello World `index.html`                                                                                                                                                           | EC2 (via SSH)     | EC2 instance running                                     |
 | `verify-dns.sh`              | Smoke tests: A record resolution, CNAME resolution, HTTP content check for ptodd.org and www.ptodd.org                                                                                                                                | Developer machine | `dig` and `curl` available                               |
 
+## Verifying CloudFront Cache Invalidation
+
+After the CD pipeline GitHub Secrets are stored (`CF_AWS_ACCESS_KEY_ID`, `CF_AWS_SECRET_ACCESS_KEY`, `CLOUDFRONT_DISTRIBUTION_ID`), verify the invalidation step works end-to-end by triggering a real prod deploy:
+
+```bash
+git fetch origin
+git checkout prod && git merge main --no-edit
+just deploy <VERSION>   # e.g. just deploy 1.2.0
+```
+
+Then open the Actions log at `github.com/ptdecker/kiss-server/actions` and look for the **"Invalidate CloudFront cache"** step. A successful run prints:
+
+```
+CloudFront invalidation created: I<UUID>
+```
+
+If the step fails, check that all three CF_ secrets are present:
+
+```bash
+gh secret list --repo ptdecker/kiss-server
+```
+
+Re-run `bash scripts/setup-cd-iam.sh E2JG60F8N1ZBAK` if any are missing.
+
 ## Usage Notes
 
 - EC2 scripts are executed via SSH:
