@@ -49,8 +49,8 @@ fi
 
 echo "==> Step 3: HTTPS 200 + CloudFront headers for $WWW_DOMAIN"
 
-HTTP_CODE=$(curl -so /dev/null -w "%{http_code}" --max-time 15 "https://$WWW_DOMAIN/")
-HEADERS=$(curl -sI --max-time 15 "https://$WWW_DOMAIN/")
+HTTP_CODE=$(curl -so /dev/null -w "%{http_code}" --max-time 15 "https://$WWW_DOMAIN/" 2>/dev/null || echo "000")
+HEADERS=$(curl -sI --max-time 15 "https://$WWW_DOMAIN/" 2>/dev/null || true)
 
 if [ "$HTTP_CODE" = "200" ] && echo "$HEADERS" | grep -qi "x-cache"; then
   echo "  PASS: https://$WWW_DOMAIN/ returns $HTTP_CODE with CloudFront headers"
@@ -64,7 +64,7 @@ fi
 
 echo "==> Step 4: HTTPS content for $WWW_DOMAIN"
 
-if curl -fsL --max-time 15 "https://$WWW_DOMAIN/" | grep -q "Hello World"; then
+if curl -sL --max-time 15 "https://$WWW_DOMAIN/" 2>/dev/null | grep -q "Hello World"; then
   echo "  PASS: https://$WWW_DOMAIN/ returns Hello World"
 else
   echo "  FAIL: https://$WWW_DOMAIN/ did not return Hello World"
@@ -77,7 +77,7 @@ fi
 
 echo "==> Step 5: Apex redirect chain for $DOMAIN"
 
-RESULT=$(curl -so /dev/null -w "%{http_code} %{url_effective}" -L --max-time 15 "http://$DOMAIN/")
+RESULT=$(curl -so /dev/null -w "%{http_code} %{url_effective}" -L --max-time 15 "http://$DOMAIN/" 2>/dev/null || echo "000 ")
 APEX_HTTP_CODE=$(echo "$RESULT" | awk '{print $1}')
 APEX_FINAL_URL=$(echo "$RESULT" | awk '{print $2}')
 
