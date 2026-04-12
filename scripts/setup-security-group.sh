@@ -107,7 +107,7 @@ fi
 # ─── Step 8: Verify direct EC2 IP is rejected ────────────────────────────────
 
 echo "==> Step 8: Verify direct EC2 access is rejected"
-DIRECT_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://$ELASTIC_IP/" 2>/dev/null || echo "000")
+DIRECT_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://$ELASTIC_IP/" 2>/dev/null || true)
 if [ "$DIRECT_CODE" = "200" ]; then
   echo "ERROR: Direct EC2 access still returns 200. Security group rule may not have taken effect."
   exit 1
