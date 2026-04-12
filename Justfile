@@ -37,5 +37,15 @@ prod-protection:
 
 # Tag a release and deploy to production
 deploy VERSION:
-    git tag v{{VERSION}}
-    git push origin v{{VERSION}} origin/main:prod
+    #!/usr/bin/env bash
+    set -euo pipefail
+    TAG="v{{VERSION}}"
+    # If tag already exists locally, move it to HEAD
+    if git tag | grep -qx "$TAG"; then
+        git tag -f "$TAG"
+    else
+        git tag "$TAG"
+    fi
+    # Push tag (force in case it already exists on remote) and update prod
+    git push origin "$TAG" --force-with-lease=refs/tags/"$TAG" 2>/dev/null || git push origin "$TAG" --force
+    git push origin main:prod
