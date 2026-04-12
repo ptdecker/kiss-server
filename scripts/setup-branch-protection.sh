@@ -33,14 +33,25 @@ cat > "$TMPFILE" << 'ENDJSON'
   },
   "bypass_actors": [
     {
-      "actor_type": "RepositoryRole",
       "actor_id": 5,
-      "bypass_mode": "always"
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "pull_request"
     }
   ],
   "rules": [
     { "type": "deletion" },
     { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
     {
       "type": "required_status_checks",
       "parameters": {
