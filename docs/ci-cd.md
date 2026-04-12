@@ -36,11 +36,64 @@ kiss-server uses GitHub Actions for continuous integration and continuous deploy
     7. Verifies the service is active (`sudo systemctl is-active kiss-server`) — the pipeline fails
        if this check fails
     8. Creates a GitHub Release tagged `vX.Y.Z (short-sha)` with the compiled binary attached
+    9. Creates a CloudFront cache invalidation for `/*` (fire-and-forget — clears CDN cache)
 - **Verify after deploy:**
     - Check the GitHub Actions CD run for green status
-    - `curl -s -o /dev/null -w '%{http_code}' http://ptodd.org/` should return `200`
+    - `curl -s -o /dev/null -w '%{http_code}' https://www.ptodd.org/` should return `200`
     - SSH and check: `ssh ec2-user@54.83.192.65 "sudo systemctl is-active kiss-server"` should print
       `active`
+    - Check CD run log for CloudFront invalidation ID (confirms cache was cleared)
+
+## CloudFront Cache Invalidation
+
+Every successful deploy automatically invalidates the CloudFront cache so visitors see the latest
+content without waiting for TTL expiry.
+
+### What Happens
+
+After the CD pipeline deploys the binary and verifies the service is active (step 7), an additional
+step runs:
+
+```bash
+aws cloudfront create-invalidation \
+  --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+  --paths "/*"
+```
+
+This creates a wildcard invalidation (`/*`) that clears all cached objects at every CloudFront edge
+location. The invalidation runs fire-and-forget — the pipeline does not wait for it to complete
+(invalidations typically finish within 60 seconds).
+
+### IAM Least-Privilege Setup
+
+The invalidation step uses a dedicated IAM user (`kiss-cd-cloudfront`) with a policy scoped to a
+single action on a single resource:
+
+- **Action:** `cloudfront:CreateInvalidation`
+- **Resource:** `arn:aws:cloudfront::859953692821:distribution/E2JG60F8N1ZBAK`
+
+The credentials are stored as GitHub Secrets:
+- `CF_AWS_ACCESS_KEY_ID` — access key for kiss-cd-cloudfront
+- `CF_AWS_SECRET_ACCESS_KEY` — secret key for kiss-cd-cloudfront
+- `CLOUDFRONT_DISTRIBUTION_ID` — distribution ID (`E2JG60F8N1ZBAK`)
+
+These secrets are scoped to the invalidation step only (step-level `env` block in cd.yml), not
+exposed to the SSH deploy steps.
+
+### Verifying Invalidation
+
+After a deploy, check the GitHub Actions CD run log for the invalidation step output. It prints the
+invalidation ID. To check status:
+
+```bash
+aws cloudfront get-invalidation \
+  --distribution-id E2JG60F8N1ZBAK \
+  --id <INVALIDATION_ID> \
+  --profile kiss
+```
+
+Status progresses from `InProgress` to `Completed`. You can also verify by checking that
+`https://www.ptodd.org/` serves the updated content after deploy.
 
 ## Checking EC2 Health
 

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Infrastructure
+
+- CloudFront distribution for HTTPS termination at edge via ACM certificate (ptodd.org, www.ptodd.org)
+- ACM certificate in us-east-1: auto-renewing DNS-validated certificate for ptodd.org and www.ptodd.org
+- CD pipeline: CloudFront cache invalidation (`/*`) after each successful deploy with least-privilege IAM credentials
+- DNS cutover: www.ptodd.org CNAME to CloudFront; ptodd.org apex 301-forwarded to https://www.ptodd.org
+- EC2 security group: port 80 restricted to CloudFront managed prefix list (direct public access removed)
+- Server: `Connection: close` header on all responses and 30-second read timeout for connection stability
+
 ## [1.1.0] - 2026-03-25
 
 ### Added
