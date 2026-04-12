@@ -11,6 +11,7 @@ use std::{
     result,
     sync::{mpsc, Arc, Mutex},
     thread,
+    time::Duration,
 };
 
 pub use context::Context;
@@ -41,6 +42,9 @@ const DEFAULT_POOL_SIZE: usize = 4;
 
 /// When true, inject an X-Powered-By header into normal HTTP responses.
 const ENABLE_POWERED_BY: bool = true;
+
+/// Read timeout for inbound connections (seconds). Workers drop stalled clients after this.
+const READ_TIMEOUT_SECS: u64 = 30;
 
 /// A server, which listens for incoming connections and handles them.
 #[derive(Debug)]
@@ -113,6 +117,7 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
 
 fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     info!("handling a connection");
+    stream.set_read_timeout(Some(Duration::from_secs(READ_TIMEOUT_SECS)))?;
 
     // Collect header lines inside a block so BufReader drops before we write the response.
     // BufReader borrows &mut stream; it must be dropped before send_error_response can write.
@@ -214,6 +219,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         );
     }
 
+    ctx.response.add_header("Connection", "close");
     ctx.response.write_to(&mut stream)?;
     Ok(())
 }
@@ -224,6 +230,11 @@ mod tests {
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::thread;
+
+    #[test]
+    fn test_read_timeout_const_value() {
+        assert_eq!(READ_TIMEOUT_SECS, 30, "read timeout must be 30 seconds");
+    }
 
     fn spawn_handle_connection_test(send_bytes: &'static [u8], router: Arc<Router>) -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
