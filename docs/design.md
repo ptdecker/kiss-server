@@ -86,3 +86,37 @@ fallback, so every request goes to file serving. Named routes exist for tests an
 | PATH-03 in `StaticFileHandler`, not Router                  | Requires configured root path; deferred correctly                                | Good    |
 | `decoded_path()` uses byte-buffer with `hex_char_to_byte()` | Avoids `pct_decode()` multi-byte-per-call complexity                             | Good    |
 | 404 on path traversal (not 403)                             | Avoids leaking whether the path exists outside root                              | Good    |
+| CloudFront for TLS termination (not server-side)            | Separation of concerns; auto-renewing ACM certs; CDN benefits free               | Good    |
+| `Connection: close` on all responses                        | Server handles one request per connection; prevents CLOSE-WAIT pile-up           | Good    |
+| 30-second read timeout                                      | Prevents worker exhaustion by stalled or slow clients                            | Good    |
+| Security group restricted to CloudFront prefix list         | Eliminates direct HTTP bypass of TLS termination                                 | Good    |
+
+## TLS Termination Architecture
+
+HTTPS termination is handled by AWS CloudFront, not by kiss-server itself. The server remains a
+pure HTTP/1.1 server — TLS complexity lives at the CDN edge.
+
+```mermaid
+flowchart LR
+    Client["Browser / Client"]
+    CF["CloudFront<br/>d3ahc2eiiqz0iu.cloudfront.net"]
+    EC2["EC2<br/>54.83.192.65:80"]
+    IPT["iptables<br/>PREROUTING 80 → 8080"]
+    KS["kiss-server<br/>:8080"]
+
+    Client -->|"HTTPS :443"| CF
+    CF -->|"HTTP :80"| EC2
+    EC2 --> IPT
+    IPT --> KS
+```
+
+### Why CloudFront, Not Server-Side TLS
+
+- **KISS philosophy:** The server's job is serving static files correctly. TLS is a separate concern
+  best handled by infrastructure purpose-built for it.
+- **Auto-renewing certificates:** ACM certificates renew automatically via DNS validation — no manual
+  cert rotation, no downtime windows, no cron jobs.
+- **CDN benefits:** CloudFront provides edge caching, gzip/brotli compression, and DDoS mitigation
+  at no extra cost (free tier covers the project's traffic).
+- **Separation of concerns:** The EC2 security group restricts port 80 to CloudFront IPs only. Direct
+  HTTP access to the origin is blocked — all traffic must flow through HTTPS at the edge.
