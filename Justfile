@@ -53,4 +53,4 @@ deploy VERSION:
 deploy-status:
     @gh run list --workflow=cd.yml --limit=3 \
       --json status,conclusion,createdAt,url \
-      | jq -r '.[] | [(.conclusion // .status), .createdAt, .url] | @tsv'
+      --jq '.[] | [(.conclusion // .status), .createdAt, .url] | @tsv'
