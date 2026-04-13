@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-04-13
+
+### Added
+
+- Multi-domain virtual hosting via `Host` header dispatch — the server now routes requests
+  to per-domain `StaticFileHandler` instances based on the normalized `Host` header value
+- `--config <path>` CLI argument: loads a TOML config file with `[[vhost]]` entries
+  (each specifying `domain` and `root`) and an optional `[server]` section with `default_root`
+- Hand-rolled TOML config parser (`src/config/`) with no new crate dependencies
+- `VhostDispatcher` handler (`src/handlers/vhost.rs`) that routes known domains, serves a
+  parked-domain HTML page for unknown hosts, and falls back to `default_root` when configured
+- `--config` and `--root` are mutually exclusive; passing both is a startup error
+
+### Changed
+
+- `--root <path>` backward compatibility preserved: synthesizes a `VhostDispatcher` with a
+  single default handler, so existing single-root deployments require no changes
+- Server startup now dispatches all requests through `VhostDispatcher` regardless of mode
+
 ## [1.2.4] - 2026-04-12
 
 ### Documentation
