@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-04-12
+
+### Documentation
+
+- `README.md`: deployment URL updated to `https://www.ptodd.org/` (was HTTP); EC2 IP removed (no longer the public entry point behind CloudFront)
+- `docs/ci-cd.md`: "Setup from Scratch" section updated for post-CloudFront reality — ACM cert and CloudFront distribution steps added, DNS instructions updated from pre-cutover A-record setup to post-cutover CNAME-to-CloudFront, GitHub secrets expanded from 2 to 5 (adds `CLOUDFRONT_DISTRIBUTION_ID`, `CF_AWS_ACCESS_KEY_ID`, `CF_AWS_SECRET_ACCESS_KEY`)
+- `CLAUDE.md`: test count corrected (86 → 88)
+- `src/main.rs`: crate-level docstring updated to reflect general-purpose HTTP server with CloudFront TLS termination
+
 ## [1.2.3] - 2026-04-13
 
 ### Changed
