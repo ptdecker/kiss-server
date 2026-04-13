@@ -35,17 +35,16 @@ branch-protection:
 prod-protection:
     @./scripts/setup-prod-protection.sh
 
+# Bump version in Cargo.toml and regenerate Cargo.lock
+bump VERSION:
+    @bash scripts/bump-version.sh {{VERSION}}
+
 # Tag a release and deploy to production
 deploy VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
+    bash scripts/pre-deploy-check.sh {{VERSION}}
     TAG="v{{VERSION}}"
-    # If tag already exists locally, move it to HEAD
-    if git tag | grep -qx "$TAG"; then
-        git tag -f "$TAG"
-    else
-        git tag "$TAG"
-    fi
-    # Push tag (force in case it already exists on remote) and update prod
+    if git tag | grep -qx "$TAG"; then git tag -f "$TAG"; else git tag "$TAG"; fi
     git push origin "$TAG" --force-with-lease=refs/tags/"$TAG" 2>/dev/null || git push origin "$TAG" --force
     git push origin main:prod
