@@ -33,7 +33,7 @@ just docs          # Generate and open rustdoc in browser
 
 ## Deployment
 
-kiss-server is live at [http://ptodd.org/](http://ptodd.org/) on an EC2 t3.micro instance (54.83.192.65).
+kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro behind CloudFront (ACM TLS, cache invalidation on deploy).
 
 To deploy, update CHANGELOG.md with the release notes, then run:
 

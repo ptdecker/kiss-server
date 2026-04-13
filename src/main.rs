@@ -1,4 +1,5 @@
-//! Provides the backend implementation for the ptodd.org website.
+//! A from-scratch HTTP/1.1 static file server written in pure Rust.
+//! Runs behind CloudFront for TLS termination at ptodd.org / www.ptodd.org.
 
 use log::info;
 
