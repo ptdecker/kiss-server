@@ -24,13 +24,13 @@ fi
 # ─── Step 1: Update Cargo.toml ────────────────────────────────────────────────
 
 echo "==> Step 1: Update Cargo.toml to $VERSION"
-sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+awk -v ver="$VERSION" '/^\[package\]/{p=1} p && /^version = "/{sub(/"[^"]*"/, "\""ver"\""); p=0} 1' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
 echo "  Done."
 
 # ─── Step 2: Regenerate Cargo.lock ───────────────────────────────────────────
 
 echo "==> Step 2: Regenerate Cargo.lock"
-cargo update --workspace
+cargo generate-lockfile
 echo "  Done."
 
 # ─── Checklist ────────────────────────────────────────────────────────────────
