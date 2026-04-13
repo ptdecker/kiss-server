@@ -71,6 +71,7 @@ fn not_found(ctx: &mut Context) -> Result<()> {
 /// - Handles HEAD requests with headers only, no body (FILE-04)
 /// - Applies `canonicalize + starts_with(root)` traversal guard (PATH-03)
 /// - Returns 404 for missing files (not 500)
+#[derive(Debug)]
 pub struct StaticFileHandler {
     canonical_root: PathBuf,
 }

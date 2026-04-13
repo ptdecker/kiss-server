@@ -45,6 +45,7 @@ pub fn normalize_host(raw: &str) -> String {
 /// - If found, delegates to that handler.
 /// - If not found and `default_handler` is set, delegates to the default handler.
 /// - Otherwise, returns a 200 parked-domain HTML page.
+#[derive(Debug)]
 pub struct VhostDispatcher {
     vhosts: HashMap<String, StaticFileHandler>,
     default_handler: Option<StaticFileHandler>,
