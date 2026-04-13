@@ -8,6 +8,7 @@ use server::{Router, Server};
 
 use handlers::StaticFileHandler;
 
+mod config;
 mod handlers;
 mod logger;
 mod server;
