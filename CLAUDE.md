@@ -31,7 +31,7 @@ use `git push --force-with-lease` (not `--force`) to push the working branch.
 
 ## Testing
 
-All changes must pass `cargo test` (86 tests) before committing.
+All changes must pass `cargo test` (88 tests) before committing.
 Pre-commit hook runs the test suite automatically.
 
 ## Just Commands
