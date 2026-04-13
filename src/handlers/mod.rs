@@ -6,6 +6,9 @@
 use crate::server::{Context, Handler, RequestMethod, Response, Result};
 use std::path::PathBuf;
 
+mod vhost;
+pub use vhost::VhostDispatcher;
+
 /// Handler for `GET /` — returns 200 OK with a plain text body.
 ///
 /// Not used in production routing (the StaticFileHandler fallback serves all paths).
@@ -157,6 +160,7 @@ mod tests {
             request: Request {
                 method: RequestMethod::Get,
                 target: Url::from("/"),
+                host: None,
             },
             response: Response::new(200, "OK"),
         }
@@ -236,6 +240,7 @@ mod tests {
             request: Request {
                 method,
                 target: Url::from(path),
+                host: None,
             },
             response: Response::new(200, "OK"),
         }

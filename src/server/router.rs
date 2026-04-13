@@ -128,6 +128,7 @@ mod tests {
             request: Request {
                 method,
                 target: Url::from(path),
+                host: None,
             },
             response: Response::new(200, "OK"),
         }
