@@ -42,12 +42,12 @@ fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
 /// `Config::load()` will parse the TOML content.
 fn parse_config_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
     if let Some(pos) = args.iter().position(|a| a == "--config") {
-        let path_str = args.get(pos + 1).ok_or("--config requires a path argument")?;
+        let path_str = args
+            .get(pos + 1)
+            .ok_or("--config requires a path argument")?;
         let path = std::path::PathBuf::from(path_str);
         if !path.is_file() {
-            return Err(
-                format!("--config '{}': not a file or does not exist", path_str).into(),
-            );
+            return Err(format!("--config '{}': not a file or does not exist", path_str).into());
         }
         Ok(path)
     } else {
@@ -158,7 +158,11 @@ mod tests {
         let args = vec!["--config".to_string(), path_str];
         let result = parse_config_from(&args);
         let _ = std::fs::remove_file(&file_path);
-        assert!(result.is_ok(), "expected Ok for existing file, got: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "expected Ok for existing file, got: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -167,14 +171,21 @@ mod tests {
         let result = parse_config_from(&args);
         assert!(result.is_err(), "expected Err when --config is absent");
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("--config"), "error should mention --config, got: {:?}", msg);
+        assert!(
+            msg.contains("--config"),
+            "error should mention --config, got: {:?}",
+            msg
+        );
     }
 
     #[test]
     fn parse_config_from_missing_path_value_returns_err() {
         let args = vec!["--config".to_string()];
         let result = parse_config_from(&args);
-        assert!(result.is_err(), "expected Err when --config has no following path");
+        assert!(
+            result.is_err(),
+            "expected Err when --config has no following path"
+        );
     }
 
     #[test]
@@ -186,7 +197,11 @@ mod tests {
         let result = parse_config_from(&args);
         assert!(result.is_err(), "expected Err for nonexistent path");
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("not a file"), "error should say 'not a file', got: {:?}", msg);
+        assert!(
+            msg.contains("not a file"),
+            "error should say 'not a file', got: {:?}",
+            msg
+        );
     }
 
     #[test]
@@ -196,7 +211,11 @@ mod tests {
         let result = parse_config_from(&args);
         assert!(result.is_err(), "expected Err when path is a directory");
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("not a file"), "error should say 'not a file', got: {:?}", msg);
+        assert!(
+            msg.contains("not a file"),
+            "error should say 'not a file', got: {:?}",
+            msg
+        );
     }
 
     // ========== build_dispatcher() unit tests ==========
@@ -211,7 +230,10 @@ mod tests {
             temp_dir,
         ];
         let result = build_dispatcher(&args);
-        assert!(result.is_err(), "expected Err when both --config and --root present");
+        assert!(
+            result.is_err(),
+            "expected Err when both --config and --root present"
+        );
         let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("mutually exclusive"),
@@ -224,7 +246,10 @@ mod tests {
     fn build_dispatcher_neither_flag_returns_err() {
         let args: Vec<String> = vec![];
         let result = build_dispatcher(&args);
-        assert!(result.is_err(), "expected Err when neither --config nor --root present");
+        assert!(
+            result.is_err(),
+            "expected Err when neither --config nor --root present"
+        );
     }
 
     #[test]
@@ -232,7 +257,11 @@ mod tests {
         let temp_dir = std::env::temp_dir().to_string_lossy().to_string();
         let args = vec!["--root".to_string(), temp_dir];
         let result = build_dispatcher(&args);
-        assert!(result.is_ok(), "expected Ok with valid --root, got: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "expected Ok with valid --root, got: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -261,7 +290,11 @@ mod tests {
         let _ = std::fs::remove_file(&config_file);
         let _ = std::fs::remove_dir(&vhost_root);
 
-        assert!(result.is_ok(), "expected Ok with valid --config, got: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "expected Ok with valid --config, got: {:?}",
+            result
+        );
     }
 
     // ========== parse_root_from() unit tests ==========

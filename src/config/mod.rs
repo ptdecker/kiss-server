@@ -59,7 +59,11 @@ enum Section {
 /// Returns `Err` if the value is not a quoted string or the format is wrong.
 fn parse_key_value(line: &str, lineno: usize) -> Result<(String, String), ConfigError> {
     let eq_pos = line.find('=').ok_or_else(|| {
-        ConfigError::Parse(format!("line {}: expected 'key = \"value\"', got: {}", lineno + 1, line))
+        ConfigError::Parse(format!(
+            "line {}: expected 'key = \"value\"', got: {}",
+            lineno + 1,
+            line
+        ))
     })?;
     let key = line[..eq_pos].trim().to_string();
     let value_raw = line[eq_pos + 1..].trim();
@@ -237,7 +241,10 @@ domain = "ptodd.org"
 root = "/var/www/ptodd.org"
 "#;
         let cfg = Config::parse(input).expect("should parse");
-        assert_eq!(cfg.server.default_root, Some("/var/www/default".to_string()));
+        assert_eq!(
+            cfg.server.default_root,
+            Some("/var/www/default".to_string())
+        );
         assert_eq!(cfg.vhosts.len(), 1);
     }
 
@@ -254,7 +261,10 @@ default_root = "/var/www/default"
         let cfg = Config::parse(input).expect("should parse with [server] after [[vhost]]");
         assert_eq!(cfg.vhosts.len(), 1);
         assert_eq!(cfg.vhosts[0].domain, "ptodd.org");
-        assert_eq!(cfg.server.default_root, Some("/var/www/default".to_string()));
+        assert_eq!(
+            cfg.server.default_root,
+            Some("/var/www/default".to_string())
+        );
     }
 
     #[test]
@@ -269,7 +279,10 @@ root = "/var/www/ptodd.org"
 "#;
         let cfg = Config::parse(input).expect("should parse with [server] before [[vhost]]");
         assert_eq!(cfg.vhosts.len(), 1);
-        assert_eq!(cfg.server.default_root, Some("/var/www/default".to_string()));
+        assert_eq!(
+            cfg.server.default_root,
+            Some("/var/www/default".to_string())
+        );
     }
 
     #[test]
@@ -379,7 +392,10 @@ foo = "bar"
     #[test]
     fn load_from_nonexistent_file_returns_err() {
         let result = Config::load(std::path::Path::new("/nonexistent/path/config.toml"));
-        assert!(result.is_err(), "load from nonexistent file should return Err");
+        assert!(
+            result.is_err(),
+            "load from nonexistent file should return Err"
+        );
     }
 
     #[test]
@@ -399,7 +415,11 @@ root = "/var/www/ptodd.org"
         let result = Config::load(&tmp_path);
         // Clean up regardless of outcome
         let _ = std::fs::remove_file(&tmp_path);
-        assert!(result.is_ok(), "load from valid file should return Ok: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "load from valid file should return Ok: {:?}",
+            result
+        );
         let cfg = result.unwrap();
         assert_eq!(cfg.vhosts.len(), 1);
         assert_eq!(cfg.vhosts[0].domain, "ptodd.org");

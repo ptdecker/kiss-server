@@ -134,20 +134,14 @@ mod tests {
 
     #[test]
     fn parse_host_header_present() {
-        let lines = vec![
-            "GET / HTTP/1.1".to_string(),
-            "Host: ptodd.org".to_string(),
-        ];
+        let lines = vec!["GET / HTTP/1.1".to_string(), "Host: ptodd.org".to_string()];
         let req = Request::parse(&lines).unwrap();
         assert_eq!(req.host, Some("ptodd.org".to_string()));
     }
 
     #[test]
     fn parse_host_header_uppercase_raw_value() {
-        let lines = vec![
-            "GET / HTTP/1.1".to_string(),
-            "HOST: PTODD.ORG".to_string(),
-        ];
+        let lines = vec!["GET / HTTP/1.1".to_string(), "HOST: PTODD.ORG".to_string()];
         let req = Request::parse(&lines).unwrap();
         // Raw value stored as-is (normalization is a dispatch concern)
         assert_eq!(req.host, Some("PTODD.ORG".to_string()));
