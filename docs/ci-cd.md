@@ -133,10 +133,11 @@ High-level steps to recreate the full infrastructure and pipeline from zero. See
 3. **ACM certificate:** Request a public cert in us-east-1 for `ptodd.org` and `www.ptodd.org`
    via AWS Certificate Manager. Validate via DNS (add the CNAME records GoDaddy side).
 
-4. **CloudFront distribution:** Create a distribution with the EC2 Elastic IP as origin (HTTP
-   port 80). Attach the ACM cert. Set `www.ptodd.org` as the alternate domain name. Enable
-   `Redirect HTTP to HTTPS` viewer policy. Run `scripts/setup-security-group.sh` to restrict
-   EC2 port 80 to the CloudFront managed prefix list.
+4. **CloudFront distribution:** Create a distribution with the EC2 public DNS name as origin
+   (the hostname that resolves to the Elastic IP, e.g., `ec2-54-83-192-65.compute-1.amazonaws.com`,
+   using HTTP port 80). Attach the ACM cert. Set `www.ptodd.org` as the alternate domain name.
+   Enable `Redirect HTTP to HTTPS` viewer policy. Run `scripts/setup-security-group.sh` to
+   restrict EC2 port 80 to the CloudFront managed prefix list.
 
 5. **DNS cutover:** In GoDaddy, add a CNAME for `www` pointing to the CloudFront domain
    (e.g., `d3ahc2eiiqz0iu.cloudfront.net`). Use a forwarding rule for the apex (`ptodd.org`)
@@ -152,8 +153,8 @@ High-level steps to recreate the full infrastructure and pipeline from zero. See
 7. **Branch protection:** Run `scripts/setup-branch-protection.sh` (protects `main`) and
    `scripts/setup-prod-protection.sh` (protects `prod`). Both require `gh` CLI authenticated.
 
-8. **Create prod branch:** `git push origin origin/main:prod` — this also triggers the first CD
-   deployment.
+8. **Create prod branch:** `git push origin origin/main:prod` — creates the tracking branch (does
+   not trigger CD). Then run `just deploy <VERSION>` to tag and trigger the first CD deployment.
 
 ## Just Recipes
 

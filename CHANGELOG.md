@@ -9,26 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- `README.md`: deployment URL updated to `https://www.ptodd.org/` (was HTTP); EC2 IP removed (no longer the public entry point behind CloudFront)
-- `docs/ci-cd.md`: "Setup from Scratch" section updated for post-CloudFront reality — ACM cert and CloudFront distribution steps added, DNS instructions updated from pre-cutover A-record setup to post-cutover CNAME-to-CloudFront, GitHub secrets expanded from 2 to 5 (adds `CLOUDFRONT_DISTRIBUTION_ID`, `CF_AWS_ACCESS_KEY_ID`, `CF_AWS_SECRET_ACCESS_KEY`)
+- `README.md`: deployment URL updated to `https://www.ptodd.org/` (was HTTP); EC2 IP removed (no
+  longer the public entry point behind CloudFront)
+- `docs/ci-cd.md`: "Setup from Scratch" section updated for post-CloudFront reality — ACM cert and
+  CloudFront distribution steps added, DNS instructions updated from pre-cutover A-record setup to
+  post-cutover CNAME-to-CloudFront, GitHub secrets expanded from 2 to 5 (adds
+  `CLOUDFRONT_DISTRIBUTION_ID`, `CF_AWS_ACCESS_KEY_ID`, `CF_AWS_SECRET_ACCESS_KEY`)
 - `CLAUDE.md`: test count corrected (86 → 88)
-- `src/main.rs`: crate-level docstring updated to reflect general-purpose HTTP server with CloudFront TLS termination
+- `src/main.rs`: crate-level docstring updated to reflect general-purpose HTTP server with
+  CloudFront TLS termination
 
-## [1.2.3] - 2026-04-13
+## [1.2.3] - 2026-04-12
 
 ### Changed
 
-- CD pipeline now triggers on semver tag push (`v*.*.*`) instead of prod branch push, eliminating the race condition where a branch sync could fire the deploy before a tag existed
-- `pre-deploy-check.sh`: added check that local `main` matches `origin/main` before tagging, preventing deployment of commits that haven't passed CI
+- CD pipeline now triggers on semver tag push (`v*.*.*`) instead of prod branch push, eliminating
+  the race condition where a branch sync could fire the deploy before a tag existed
+- `pre-deploy-check.sh`: added check that local `main` matches `origin/main` before tagging,
+  preventing deployment of commits that haven't passed CI
 - `just deploy-status` recipe: shows last 3 CD pipeline run outcomes from the CLI
-- CD pipeline: added `workflow_dispatch` trigger with tag input for manual re-runs without requiring a prod branch push
+- CD pipeline: added `workflow_dispatch` trigger with tag input for manual re-runs without requiring
+  a prod branch push
 
 ## [1.2.2] - 2026-04-12
 
 ### Added
 
 - `scripts/bump-version.sh`: automates Cargo.toml + Cargo.lock version bump with a release checklist
-- `scripts/pre-deploy-check.sh`: validates clean tree, main branch, version consistency, and CHANGELOG entry before deploy
+- `scripts/pre-deploy-check.sh`: validates clean tree, main branch, version consistency, and
+  CHANGELOG entry before deploy
 - `just bump VERSION` recipe for one-command version bumping
 - `just deploy VERSION` now runs pre-deploy checks before tagging
 
@@ -36,25 +45,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Branch protection script: require PR with 1 approval and squash-only merges; fix pull_request rule schema for GitHub Rulesets API
+- Branch protection script: require PR with 1 approval and squash-only merges; fix pull_request rule
+  schema for GitHub Rulesets API
 
 ## [1.2.0] - 2026-04-12
 
 ### Infrastructure
 
-- CloudFront distribution for HTTPS termination at edge via ACM certificate (ptodd.org, www.ptodd.org)
-- ACM certificate in us-east-1: auto-renewing DNS-validated certificate for ptodd.org and www.ptodd.org
-- CD pipeline: CloudFront cache invalidation (`/*`) after each successful deploy with least-privilege IAM credentials
-- DNS cutover: www.ptodd.org CNAME to CloudFront; ptodd.org apex 301-forwarded to https://www.ptodd.org
-- EC2 security group: port 80 restricted to CloudFront managed prefix list (direct public access removed)
-- Server: `Connection: close` header on all responses and 30-second read timeout for connection stability
+- CloudFront distribution for HTTPS termination at edge via ACM certificate (
+  ptodd.org, www.ptodd.org)
+- ACM certificate in us-east-1: auto-renewing DNS-validated certificate for ptodd.org
+  and www.ptodd.org
+- CD pipeline: CloudFront cache invalidation (`/*`) after each successful deploy with
+  least-privilege IAM credentials
+- DNS cutover: www.ptodd.org CNAME to CloudFront; ptodd.org apex 301-forwarded
+  to https://www.ptodd.org
+- EC2 security group: port 80 restricted to CloudFront managed prefix list (direct public access
+  removed)
+- Server: `Connection: close` header on all responses and 30-second read timeout for connection
+  stability
 
 ## [1.1.0] - 2026-03-25
 
 ### Added
 
-- Continuous deployment pipeline: push to `prod` branch triggers automated build, deploy to EC2, health check, and GitHub Release
-- Branch protection: main requires PR with passing CI; prod has deletion and non-fast-forward protection
+- Continuous deployment pipeline: push to `prod` branch triggers automated build, deploy to EC2,
+  health check, and GitHub Release
+- Branch protection: main requires PR with passing CI; prod has deletion and non-fast-forward
+  protection
 - AWS infrastructure: EC2 t3.micro with Elastic IP (54.83.192.65) and Security Group
 - EC2 service setup: systemd service, iptables port 80 to 8080 redirect, non-root execution
 - DNS configuration: ptodd.org and www.ptodd.org routed to EC2 via GoDaddy
@@ -76,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP/1.1 static file server built from scratch in pure Rust (stdlib + `log` crate only)
 - Handler, Context, and Router abstraction for request pipeline
 - Fixed-size thread pool for concurrent connection handling
-- Static file serving with binary-safe reads and MIME detection (10 types plus octet-stream fallback)
+- Static file serving with binary-safe reads and MIME detection (10 types plus octet-stream
+  fallback)
 - Path traversal prevention via canonicalize and starts_with check
 - Percent-encoding support for URL paths (RFC 3986 Section 2.1)
 - Directory requests serve index.html automatically
