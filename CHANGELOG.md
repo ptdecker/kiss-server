@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-04-12
+
+### Added
+
+- `scripts/bump-version.sh`: automates Cargo.toml + Cargo.lock version bump with a release checklist
+- `scripts/pre-deploy-check.sh`: validates clean tree, main branch, version consistency, and CHANGELOG entry before deploy
+- `just bump VERSION` recipe for one-command version bumping
+- `just deploy VERSION` now runs pre-deploy checks before tagging
+
 ## [1.2.1] - 2026-04-12
 
 ### Fixed
