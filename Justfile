@@ -48,3 +48,9 @@ deploy VERSION:
     if git tag | grep -qx "$TAG"; then git tag -f "$TAG"; else git tag "$TAG"; fi
     git push origin "$TAG" --force-with-lease=refs/tags/"$TAG" 2>/dev/null || git push origin "$TAG" --force
     git push origin main:prod
+
+# Show status of the last 3 CD pipeline runs
+deploy-status:
+    @gh run list --workflow=cd.yml --limit=3 \
+      --json status,conclusion,createdAt,url \
+      | jq -r '.[] | [(.conclusion // .status), .createdAt, .url] | @tsv'
