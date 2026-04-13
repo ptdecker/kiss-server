@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-04-13
+
+### Changed
+
+- CD pipeline now triggers on semver tag push (`v*.*.*`) instead of prod branch push, eliminating the race condition where a branch sync could fire the deploy before a tag existed
+- `pre-deploy-check.sh`: added check that local `main` matches `origin/main` before tagging, preventing deployment of commits that haven't passed CI
+- `just deploy-status` recipe: shows last 3 CD pipeline run outcomes from the CLI
+- CD pipeline: added `workflow_dispatch` trigger with tag input for manual re-runs without requiring a prod branch push
+
 ## [1.2.2] - 2026-04-12
 
 ### Added

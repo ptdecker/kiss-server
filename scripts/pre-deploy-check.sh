@@ -55,6 +55,17 @@ if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
   FAILED=1
 fi
 
+# ─── Check 5: main matches origin/main ───────────────────────────────────────
+
+git fetch origin main --quiet
+LOCAL=$(git rev-parse main)
+REMOTE=$(git rev-parse origin/main)
+if [ "$LOCAL" != "$REMOTE" ]; then
+  echo "ERROR: Local main has unpushed commits (or is behind origin/main)."
+  echo "  Run: git push origin main   (or git pull origin main)"
+  FAILED=1
+fi
+
 # ─── Result ───────────────────────────────────────────────────────────────────
 
 if [ "$FAILED" -ne 0 ]; then
