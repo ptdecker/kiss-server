@@ -84,11 +84,20 @@ impl Handler for VhostDispatcher {
     }
 }
 
+/// Escape HTML special characters to prevent XSS.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
 /// Build a 200 parked-domain HTML response.
 fn parked_page(ctx: &mut Context, host: &str) -> Result<()> {
+    let safe_host = html_escape(host);
     let html = format!(
         "<!DOCTYPE html>\n<html>\n<head><title>Parked Domain</title></head>\n<body>\n<p>{} is parked here but has no content.</p>\n</body>\n</html>",
-        host
+        safe_host
     );
     let body = html.into_bytes();
     let content_length = body.len().to_string();
