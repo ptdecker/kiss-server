@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-04-14
+
+### Added
+- Per-request access logging: one structured `info!(target: "access", ...)` line per response
+  with peer IP, HTTP version, method, path, Host header, status code, response bytes, and
+  duration_ms
+- `just logs` — SSHes to EC2 and shows last 100 lines of the kiss-server journal
+- `just logs-follow` — SSHes to EC2 and streams live journal output
+- `.env.example` template documenting `EC2_HOST` and `EC2_SSH_KEY` variables
+
+### Changed
+- systemd unit sets `Environment=RUST_LOG=info` for structured production log level
+- `scripts/install-kiss-server.sh` updated so log level survives every redeploy
+
 ## [1.3.0] - 2026-04-13
 
 ### Added
