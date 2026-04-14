@@ -54,3 +54,21 @@ deploy-status:
     @gh run list --workflow=cd.yml --limit=3 \
       --json status,conclusion,createdAt,url \
       --jq '.[] | [(.conclusion // .status), .createdAt, .url] | @tsv'
+
+# View last 100 lines of production logs (requires .env with EC2_HOST set)
+logs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SSH_ARGS=""
+    if [ -n "${EC2_SSH_KEY:-}" ]; then SSH_ARGS="-i ${EC2_SSH_KEY}"; fi
+    # Uses sudo because ec2-user may not be in systemd-journal group on Amazon Linux 2023
+    ssh $SSH_ARGS "$EC2_HOST" sudo journalctl -u kiss-server -n 100 --no-pager
+
+# Stream production logs live — Ctrl-C to stop (requires .env with EC2_HOST set)
+logs-follow:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SSH_ARGS=""
+    if [ -n "${EC2_SSH_KEY:-}" ]; then SSH_ARGS="-i ${EC2_SSH_KEY}"; fi
+    # Uses sudo because ec2-user may not be in systemd-journal group on Amazon Linux 2023
+    ssh $SSH_ARGS "$EC2_HOST" sudo journalctl -u kiss-server -f
