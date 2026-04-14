@@ -1,3 +1,5 @@
+set dotenv-load
+
 # Lint the project
 lint:
     @cargo fmt
