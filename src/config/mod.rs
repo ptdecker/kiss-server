@@ -84,13 +84,13 @@ fn parse_key_value(line: &str, lineno: usize) -> Result<(String, String), Config
 fn commit_vhost(entry: VhostEntry, lineno: usize) -> Result<VhostEntry, ConfigError> {
     if entry.domain.is_empty() {
         return Err(ConfigError::Parse(format!(
-            "line {}: [[vhost]] block is missing required field 'domain'",
+            "line {}: [[vhost]] field 'domain' must not be empty",
             lineno + 1
         )));
     }
     if entry.root.is_empty() {
         return Err(ConfigError::Parse(format!(
-            "line {}: [[vhost]] block is missing required field 'root'",
+            "line {}: [[vhost]] field 'root' must not be empty",
             lineno + 1
         )));
     }
