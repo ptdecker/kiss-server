@@ -5,3 +5,4 @@
 bluehost_backup
 .DS_Store
 .planning/
+.env

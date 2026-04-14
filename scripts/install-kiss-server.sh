@@ -139,6 +139,7 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+Environment=RUST_LOG=info
 
 [Install]
 WantedBy=multi-user.target
