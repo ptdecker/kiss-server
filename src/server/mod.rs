@@ -3,7 +3,7 @@
 //! This module implements a basic HTTP server. This server leverages a thread pool to handle
 //! pool to handle incoming connections. It has no third-party crate dependencies.
 
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::{
     fmt,
     io::{prelude::*, BufReader},
@@ -11,7 +11,7 @@ use std::{
     result,
     sync::{mpsc, Arc, Mutex},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub use context::Context;
@@ -116,7 +116,8 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
 }
 
 fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
-    info!("handling a connection");
+    let start = Instant::now();
+    debug!("handling a connection");
     stream.set_read_timeout(Some(Duration::from_secs(READ_TIMEOUT_SECS)))?;
 
     // Collect header lines inside a block so BufReader drops before we write the response.
@@ -183,9 +184,9 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         }
     };
 
-    info!("{}", http_request[0]);
-    info!("Method: {}", request.method);
-    info!("Target: {}", request.target);
+    debug!("{}", http_request[0]);
+    debug!("Method: {}", request.method);
+    debug!("Target: {}", request.target);
     let peer = stream
         .peer_addr()
         .unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap());
@@ -220,7 +221,30 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     }
 
     ctx.response.add_header("Connection", "close");
+
+    // Capture access log fields before write_to consumes the response
+    let resp_status = ctx.response.status();
+    let resp_bytes = ctx.response.body_len();
+    let host_val = ctx.request.host.as_deref().unwrap_or("-").to_string();
+    let method_str = ctx.request.method.to_string();
+    let target_str = ctx.request.target.clone();
+
     ctx.response.write_to(&mut stream)?;
+
+    // Access log: one line per successful response (D-06, D-07, D-08)
+    let elapsed_ms = start.elapsed().as_millis();
+    info!(
+        target: "access",
+        "{} HTTP/1.1 {} {} host={} status={} bytes={} duration_ms={}",
+        peer,
+        method_str,
+        target_str,
+        host_val,
+        resp_status,
+        resp_bytes,
+        elapsed_ms
+    );
+
     Ok(())
 }
 
