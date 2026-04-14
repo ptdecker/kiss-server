@@ -36,6 +36,16 @@ impl Response {
         self
     }
 
+    /// Returns the HTTP status code.
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    /// Returns the body length in bytes.
+    pub fn body_len(&self) -> usize {
+        self.body.len()
+    }
+
     /// Add a header to the response in place (mutating).
     ///
     /// Use this after dispatch when the response has already been built by a handler
@@ -185,5 +195,19 @@ mod tests {
             "add_header did not append: {:?}",
             output
         );
+    }
+
+    #[test]
+    fn status_accessor_returns_status_code() {
+        assert_eq!(Response::new(200, "OK").status(), 200);
+        assert_eq!(Response::new(404, "Not Found").status(), 404);
+        assert_eq!(Response::new(500, "Internal Server Error").status(), 500);
+    }
+
+    #[test]
+    fn body_len_accessor_returns_byte_count() {
+        assert_eq!(Response::new(200, "OK").body_len(), 0);
+        assert_eq!(Response::new(200, "OK").body(b"hello".to_vec()).body_len(), 5);
+        assert_eq!(Response::new(200, "OK").body(b"AB".to_vec()).body_len(), 2);
     }
 }
