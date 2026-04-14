@@ -92,7 +92,7 @@ impl Request {
             )));
         }
         let host = raw_request[1..].iter().find_map(|line| {
-            if line.len() > 5 && line[..5].eq_ignore_ascii_case("host:") {
+            if line.len() >= 5 && line[..5].eq_ignore_ascii_case("host:") {
                 Some(line[5..].trim().to_string())
             } else {
                 None
