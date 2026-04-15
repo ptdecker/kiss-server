@@ -4,7 +4,7 @@ use std::io::Write;
 
 /// An HTTP/1.1 response, constructed via a value-chaining builder.
 ///
-/// Build order: Response::new(status, reason).header(k, v)....body(bytes)
+/// Build order: Response::new(status, reason).header(k, v)...body(bytes)
 /// Send order: response.write_to(&mut stream)?
 pub struct Response {
     status: u16,
@@ -34,6 +34,16 @@ impl Response {
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = body;
         self
+    }
+
+    /// Returns the HTTP status code.
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    /// Returns the body length in bytes.
+    pub fn body_len(&self) -> usize {
+        self.body.len()
     }
 
     /// Add a header to the response in place (mutating).
@@ -119,7 +129,7 @@ mod tests {
             .body(b"hello".to_vec())
             .write_to(&mut buf)
             .unwrap();
-        // body appears after the blank separator
+        // the body appears after the blank separator
         let sep = b"\r\n\r\n";
         let sep_pos = buf
             .windows(4)
@@ -185,5 +195,22 @@ mod tests {
             "add_header did not append: {:?}",
             output
         );
+    }
+
+    #[test]
+    fn status_accessor_returns_status_code() {
+        assert_eq!(Response::new(200, "OK").status(), 200);
+        assert_eq!(Response::new(404, "Not Found").status(), 404);
+        assert_eq!(Response::new(500, "Internal Server Error").status(), 500);
+    }
+
+    #[test]
+    fn body_len_accessor_returns_byte_count() {
+        assert_eq!(Response::new(200, "OK").body_len(), 0);
+        assert_eq!(
+            Response::new(200, "OK").body(b"hello".to_vec()).body_len(),
+            5
+        );
+        assert_eq!(Response::new(200, "OK").body(b"AB".to_vec()).body_len(), 2);
     }
 }

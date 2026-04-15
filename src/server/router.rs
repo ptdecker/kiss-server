@@ -43,7 +43,7 @@ impl Router {
 
     /// Register a handler for the given HTTP method and exact path.
     ///
-    /// Routes are checked in registration order; first match wins.
+    /// Routes are checked in registration order; the first match wins.
     /// Returns `Err` if `method` is not a valid HTTP method string.
     ///
     /// Not called from production `main()` (all requests go to the StaticFileHandler fallback).
@@ -128,6 +128,7 @@ mod tests {
             request: Request {
                 method,
                 target: Url::from(path),
+                host: None,
             },
             response: Response::new(200, "OK"),
         }
@@ -334,7 +335,7 @@ mod tests {
 
     #[test]
     fn dispatch_with_fallback_matched_route_not_fallback() {
-        // Router with fallback set, matched GET / -> registered route handler, NOT fallback
+        // Router with a fallback set, matched GET / -> registered route handler, NOT fallback
         let mut router = Router::new().set_fallback(OkFallbackHandler);
         router.add("GET", "/", OkHandler).unwrap();
         // OkHandler writes body "OK"; OkFallbackHandler writes body "fallback"
@@ -402,7 +403,7 @@ mod tests {
     #[test]
     fn dispatch_unmatched_body_has_trailing_newline() {
         // NotFoundHandler body must match not_found() helper: "Not Found\n" (with newline)
-        // Regression test for UAT test 6: path traversal returned 404 without trailing newline
+        // Regression test for UAT test 6: path traversal returned 404 without trailing a newline
         let router = Router::new();
         let mut ctx = make_ctx(RequestMethod::Get, "/missing");
         router.dispatch(&mut ctx).unwrap();

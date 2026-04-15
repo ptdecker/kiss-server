@@ -3,9 +3,9 @@
 //! Provides an implementation of the ubiquitous Rust [log](https://crates.io/crates/log) facade.
 //!
 //! This logger implementation borrows some code from [simple_logger](https://crates.io/crates/simple_logger)
-//! but is a very bare bones logger implementation that makes assumptions where other full-featured
-//! loggers would provide configuration options. It is included here in keeping with the intent of this
-//! site to minimize to ideally none the usage of any third-party crates.
+//! but is a very bare-bones logger implementation that makes assumptions where other full-featured
+//! loggers would provide configuration options. It is included here in keeping with the intent of
+//! this site to minimize to ideally none, the usage of any third-party crates.
 //!
 //! Log entries are output to stderr
 //!

@@ -92,7 +92,7 @@ mod tests {
 
     // Helper function that takes a value stored in any type that can be referenced as a str.
     // If it contains an RTF 3986 Percent-Encoding of a valid UTF-8 Unicode character, that
-    // character is returned as a char. Otherwise, and error is returned. Used only in tests.
+    // character is returned as a char. Otherwise, an error is returned. Used only in tests.
     fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
         let mut chars = pct_encoded.as_ref().chars().peekable();
         let mut bytes = Vec::<u8>::new();
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn decoded_path_strips_query_before_decode() {
-        // query contains %20 but path does not; path() strips query first
+        // query contains %20, but path does not; path() strips query first
         let url = Url::from("/path?query=%20");
         assert_eq!(url.decoded_path().unwrap(), "/path");
     }

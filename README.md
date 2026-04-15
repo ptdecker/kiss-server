@@ -2,7 +2,10 @@
 
 # kiss-server
 
-A from-scratch HTTP/1.1 static file server written in pure Rust with no external dependencies beyond the `log` crate facade. A client can request any static file by path and receive a correct, RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong content type.
+A from-scratch HTTP/1.1 static file server written in pure Rust with no external dependencies beyond
+the `log` crate facade. A client can request any static file by path and receive a correct,
+RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong
+content type.
 
 ## Build & Run Locally
 
@@ -11,7 +14,8 @@ cargo build --release
 ./target/release/kiss-server --root /path/to/webroot
 ```
 
-The `--root` flag is required and specifies the directory to serve files from. The `--port` flag is optional (defaults to 6502).
+The `--root` flag is required and specifies the directory to serve files from. The `--port` flag is
+optional (defaults to 6502).
 
 ```bash
 # Example: serve the current directory on port 8080
@@ -33,7 +37,8 @@ just docs          # Generate and open rustdoc in browser
 
 ## Deployment
 
-kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro behind CloudFront (ACM TLS, cache invalidation on deploy).
+kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro behind
+CloudFront (ACM TLS, cache invalidation on deployment).
 
 To deploy, update CHANGELOG.md with the release notes, then run:
 
@@ -41,16 +46,22 @@ To deploy, update CHANGELOG.md with the release notes, then run:
 just deploy 1.2.0  # tags v1.2.0 and pushes to prod
 ```
 
-This triggers the CD pipeline which builds a release binary, deploys it to EC2, verifies the service is running, and creates a GitHub Release. See [docs/ci-cd.md](docs/ci-cd.md) for full pipeline documentation.
+This triggers the CD pipeline which builds a release binary, deploys it to EC2, verifies the service
+is running, and creates a GitHub Release. See [docs/ci-cd.md](docs/ci-cd.md) for full pipeline
+documentation.
 
 ## Architecture
 
-kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is built on Rust's standard library — no async runtime, no frameworks.
+The kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for
+concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are
+served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is
+built on Rust's standard library — no async runtime, no frameworks.
 
 See [docs/design.md](docs/design.md) for the full architecture walkthrough.
 
 ## Scripts
 
-Automation scripts for infrastructure provisioning, CI/CD setup, and deployment verification live in the `scripts/` directory.
+Automation scripts for infrastructure provisioning, CI/CD setup, and deployment verification live in
+the `scripts/` directory.
 
 See [scripts/README.md](scripts/README.md) for details on each script.

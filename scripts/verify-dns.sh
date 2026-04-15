@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # verify-dns.sh
-# Smoke test for DNS configuration of ptodd.org.
-# Checks CloudFront-routed DNS: CNAME resolution, HTTPS content,
-# CloudFront response headers, and apex redirect chain.
+#
+# Smoke test for DNS configuration of ptodd.org. Checks CloudFront-routed DNS: CNAME resolution,
+# HTTPS content, CloudFront response headers, and apex redirect chain.
 #
 # Usage: bash scripts/verify-dns.sh
 # Requirements: dig, curl (both present on macOS and Amazon Linux 2023)
 # Run from: Developer machine (not EC2)
 
+set -euo pipefail
+
 ELASTIC_IP="54.83.192.65"
 DOMAIN="ptodd.org"
 WWW_DOMAIN="www.ptodd.org"
-CLOUDFRONT_DOMAIN="d3ahc2eiiqz0iu.cloudfront.net"
 FAILURES=0
 
 # ─── Step 1: www CNAME check (DNS-04) ────────────────────────────────────────
@@ -72,8 +71,7 @@ else
 fi
 
 # ─── Step 5: Apex redirect chain (DNS-05) ────────────────────────────────────
-# Verify http://ptodd.org 301-redirects to https://www.ptodd.org/ and final
-# response is 200.
+# Verify http://ptodd.org 301-redirects to https://www.ptodd.org/ and final response is 200.
 
 echo "==> Step 5: Apex redirect chain for $DOMAIN"
 
@@ -89,8 +87,8 @@ else
 fi
 
 # ─── Step 6: Apex no longer resolves to EC2 IP (DNS-05) ──────────────────────
-# Verify ptodd.org A record no longer points to the EC2 Elastic IP.
-# GoDaddy domain forwarding replaces the A record with their forwarding servers.
+# Verify ptodd.org A record no longer points to the EC2 Elastic IP. GoDaddy domain forwarding
+# replaces the A record with their forwarding servers.
 
 echo "==> Step 6: Apex no longer resolves to EC2 IP"
 

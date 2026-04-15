@@ -112,12 +112,14 @@ impl fmt::Display for DateTime {
 /// Any year prior to 1582 when the Gregorian calendar was adopted is returned as 'false' since leap years did
 /// not exist prior to its adoption. For years beyond 1582, the following rules are followed:
 ///
+/// ```
 ///   div 4  | div 100 | div 400 |  leap?  | example
 /// ---------+---------+---------+---------+---------
 ///     F    |    F    |    F    |    F    |  2019
 ///     T    |    F    |    F    |    T    |  2020
 ///     -    |    T    |    F    |    F    |  1900
 ///     -    |    -    |    T    |    T    |  2000
+/// ```
 pub fn is_leap_year<T>(year: T) -> bool
 where
     T: Into<u16>,
@@ -234,8 +236,8 @@ mod tests {
     #[test]
     fn weekday_2025_dec_01() {
         // 2025-12-01 is Monday, index 1 in 0=Sunday convention.
-        // Epoch day = 20423 (verified: date(2025,12,1) - date(1970,1,1) == 20423 days).
-        // Note: the plan specified 20440 but that is 2025-12-18 (Thursday). Fixed to 20423.
+        // Epoch day = 20_423 (verified: date(2025,12,1) - date(1970,1,1) == 20423 days).
+        // Note: the plan specified 20_440, but that is 2025-12-18 (Thursday). Fixed to 20_423.
         assert_eq!(weekday_from_days(20423), 1);
     }
 

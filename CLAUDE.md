@@ -29,6 +29,10 @@ use `git push --force-with-lease` (not `--force`) to push the working branch.
 - `.github/workflows/` — CI and CD pipelines
 - `.planning/` — GSD project management artifacts (local only, gitignored)
 
+## Lint Policy
+
+`just lint` must produce zero warnings. Clippy and rustc warnings are treated as errors and must be corrected before committing. If `just lint` emits any warning, fix it immediately.
+
 ## Testing
 
 All changes must pass `cargo test` (88 tests) before committing.
