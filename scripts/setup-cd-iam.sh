@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-cd-iam.sh
+#
 # Idempotent script to create an IAM user for the CD pipeline's CloudFront cache invalidation.
-# Creates the kiss-cd-cloudfront IAM user with an inline policy scoped to
-# cloudfront:CreateInvalidation on the specific distribution ARN, generates an access key,
-# and prints gh secret set commands to store credentials in GitHub Secrets.
+# Creates the kiss-cd-cloudfront IAM user with an inline policy scoped to 
+# cloudfront:CreateInvalidation on the specific distribution ARN, generates an access key, and 
+# prints gh secret set commands to store credentials in GitHub Secrets.
 #
 # Usage: bash scripts/setup-cd-iam.sh DISTRIBUTION_ID
 #   Get DISTRIBUTION_ID from: docs/aws-resources.md or scripts/setup-cloudfront.sh output
@@ -17,7 +16,8 @@ set -euo pipefail
 #   - Inline policy: kiss-cd-cloudfront-invalidation (cloudfront:CreateInvalidation on specific ARN)
 #   - IAM access key: printed once — store immediately as GitHub Secrets
 
-REGION="us-east-1"
+set -euo pipefail
+
 PROFILE="kiss"
 IAM_USER="kiss-cd-cloudfront"
 POLICY_NAME="kiss-cd-cloudfront-invalidation"

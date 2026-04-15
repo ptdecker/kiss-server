@@ -13,8 +13,8 @@ The request pipeline is built around three types that work together:
   Handlers must be `Send + Sync` because they are shared across worker threads via `Arc<Router>`.
   Returning `Err` causes the server to send a 500 response.
 
-- **Context**: Wraps the incoming `Request` and the outgoing `Response` for a single HTTP
-  request and response cycle. Constructed per-request in `handle_connection`. Handlers read the request
+- **Context**: Wraps the incoming `Request` and the outgoing `Response` for a single HTTP request
+  and response cycle. Constructed per-request in `handle_connection`. Handlers read the request
   from `ctx.request` and write the response into `ctx.response` in place.
 
 - **Router**: Maps URL paths to Handler implementations via a registration list. Routes are checked
@@ -114,9 +114,9 @@ flowchart LR
 
 - **KISS philosophy:** The server's job is serving static files correctly. TLS is a separate concern
   best handled by infrastructure purpose-built for it.
-- **Auto-renewing certificates:** ACM certificates renew automatically via DNS validation — no manual
-  cert rotation, no downtime windows, no cron jobs.
+- **Auto-renewing certificates:** ACM certificates renew automatically via DNS validation — no
+  manual cert rotation, no downtime windows, no cron jobs.
 - **CDN benefits:** CloudFront provides edge caching, gzip/brotli compression, and DDoS mitigation
   at no extra cost (free tier covers the project's traffic).
-- **Separation of concerns:** The EC2 security group restricts port 80 to CloudFront IPs only. Direct
-  HTTP access to the origin is blocked — all traffic must flow through HTTPS at the edge.
+- **Separation of concerns:** The EC2 security group restricts port 80 to CloudFront IPs only.
+  Direct HTTP access to the origin is blocked — all traffic must flow through HTTPS at the edge.

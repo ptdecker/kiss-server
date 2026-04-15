@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-prod-protection.sh
-# Idempotent script to create or update the "Protect prod" ruleset
-# on ptdecker/kiss-server via the GitHub Rulesets API.
+#
+# Idempotent script to create or update the "Protect prod" ruleset on ptdecker/kiss-server via 
+# the GitHub Rulesets API.
 #
 # Usage: bash scripts/setup-prod-protection.sh
 # Requirements: gh CLI authenticated as ptdecker
+
+set -euo pipefail
 
 REPO="ptdecker/kiss-server"
 RULESET_NAME="Protect prod"

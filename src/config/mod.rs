@@ -187,7 +187,7 @@ impl Config {
         Ok(Config { server, vhosts })
     }
 
-    /// Read and parse a config file from disk.
+    /// Read and parse a config file from the disk.
     pub fn load(path: &std::path::Path) -> Result<Config, ConfigError> {
         let content = std::fs::read_to_string(path)?;
         Config::parse(&content)
@@ -374,7 +374,7 @@ root = "/var/www/ptodd.org"
 "#;
         let err = Config::parse(input).expect_err("unquoted value should be an error");
         let _msg = err.to_string();
-        // Just verify it's an error — message format is implementation-defined
+        // Just verify it's an error — a message format is implementation-defined
     }
 
     #[test]

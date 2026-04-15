@@ -68,7 +68,7 @@ fn not_found(ctx: &mut Context) -> Result<()> {
 /// Implements FILE-01, FILE-02, FILE-04, FILE-05, and PATH-03:
 /// - Reads files with binary-safe `fs::read()` (FILE-01, FILE-05)
 /// - Detects MIME types from extension (FILE-02)
-/// - Handles HEAD requests with headers only, no body (FILE-04)
+/// - Handles HEAD requests with headers only, no response body (FILE-04)
 /// - Applies `canonicalize + starts_with(root)` traversal guard (PATH-03)
 /// - Returns 404 for missing files (not 500)
 #[derive(Debug)]
@@ -109,7 +109,7 @@ impl Handler for StaticFileHandler {
         };
 
         // Canonicalize the candidate to resolve symlinks and any remaining traversal.
-        // NotFound from canonicalize means the file doesn't exist → 404.
+        // NotFound from canonicalization means the file doesn't exist → 404.
         let canonical = match std::fs::canonicalize(&candidate) {
             Ok(p) => p,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return not_found(ctx),
@@ -131,7 +131,7 @@ impl Handler for StaticFileHandler {
         let content_type = mime_type(&canonical);
         let content_length = body.len().to_string();
 
-        // FILE-04: HEAD returns headers only; GET returns headers + body.
+        // FILE-04: HEAD returns headers only; GET returns headers and body.
         if ctx.request.method == RequestMethod::Head {
             ctx.response = Response::new(200, "OK")
                 .header("Content-Type", content_type)
@@ -248,7 +248,7 @@ mod tests {
     }
 
     // --- Helper: create a temp dir with a unique name ---
-    fn make_temp_root(name: &str) -> std::path::PathBuf {
+    fn make_temp_root(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("kiss_server_test_{}", name));
         std::fs::create_dir_all(&dir).unwrap();
         dir

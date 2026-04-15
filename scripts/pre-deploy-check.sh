@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # pre-deploy-check.sh
-# Validates that everything is consistent before just deploy creates a tag.
-# Called automatically by the 'just deploy VERSION' recipe.
+#
+# Validates that everything is consistent before just deploy creates a tag. Called automatically 
+# by the 'just deploy VERSION' recipe.
 #
 # Checks:
 #   1. Working tree is clean (no uncommitted changes)
@@ -12,6 +11,8 @@ set -euo pipefail
 #   4. CHANGELOG.md has a ## [VERSION] entry
 #
 # Usage: bash scripts/pre-deploy-check.sh VERSION
+
+set -euo pipefail
 
 VERSION="${1:-}"
 

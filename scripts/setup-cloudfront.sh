@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-cloudfront.sh
-# Idempotent script to provision a CloudFront distribution for kiss-server.
-# Creates a distribution with EC2:80 as HTTP-only origin, HTTPS termination
-# via ACM certificate, HTTP-to-HTTPS redirect, Host header forwarding,
-# TLSv1.2_2021 minimum, gzip/brotli compression, and TTL=0 (no caching).
-# Polls until Status is "Deployed", then writes docs/aws-resources.md.
+#
+# Idempotent script to provision a CloudFront distribution for kiss-server. Creates a 
+# distribution with EC2:80 as HTTP-only origin, HTTPS termination via ACM certificate, 
+# HTTP-to-HTTPS redirect, Host header forwarding, TLSv1.2_2021 minimum, gzip/brotli compression, 
+# and TTL=0 (no caching). Polls until Status is "Deployed", then writes docs/aws-resources.md.
 #
 # Usage: bash scripts/setup-cloudfront.sh
 # Requirements: AWS CLI v2 configured with the 'kiss' profile
@@ -23,8 +21,10 @@ set -euo pipefail
 #     - Compression: enabled (gzip/brotli)
 #   - docs/aws-resources.md (written with all project AWS resource IDs)
 #
-# NOTE: Do NOT pass a region flag to any aws cloudfront command.
-# CloudFront is a global service; a region flag causes endpoint errors.
+# NOTE: Do NOT pass a region flag to any aws cloudfront command. CloudFront is a global service; 
+# a region flag causes endpoint errors.
+
+set -euo pipefail
 
 PROFILE="kiss"
 CERT_ARN="arn:aws:acm:us-east-1:859953692821:certificate/5df0a174-daab-4126-9f12-67ac0d51a760"

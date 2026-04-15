@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-iptables.sh
+#
 # Idempotent script to configure iptables rules on an Amazon Linux 2023 EC2 instance:
 #   - PREROUTING REDIRECT: port 80 → 8080
 #   - INPUT ACCEPT: port 80
@@ -18,6 +17,8 @@ set -euo pipefail
 #   4. Add INPUT ACCEPT for port 80
 #   5. Add INPUT ACCEPT for port 8080
 #   6. Save rules for persistence across reboots
+
+set -euo pipefail
 
 IPTABLES_SERVICE="iptables"
 

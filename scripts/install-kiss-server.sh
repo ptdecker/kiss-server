@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # install-kiss-server.sh
-# Idempotent script to install kiss-server on an Amazon Linux 2023 EC2 instance.
-# Run as ec2-user via SSH from the deployment machine.
+#
+# Idempotent script to install kiss-server on an Amazon Linux 2023 EC2 instance. Run as ec2-user
+# via SSH from the deployment machine.
 #
 # Usage: bash scripts/install-kiss-server.sh
 # Requirements: Must be run on the EC2 instance (not the local machine)
@@ -20,6 +19,8 @@ set -euo pipefail
 #   8.   Write and enable systemd unit
 #   9.   Enable and start the service
 
+set -euo pipefail
+
 CLONE_DIR="/opt/kiss-server"
 REPO_URL="https://github.com/ptdecker/kiss-server.git"
 REPO_BRANCH="main"
@@ -27,7 +28,6 @@ BINARY_SRC="$CLONE_DIR/target/release/kiss-server"
 BINARY_DEST="/usr/local/bin/kiss-server"
 KISS_USER="kiss-server"
 SERVICE_FILE="/etc/systemd/system/kiss-server.service"
-WEBROOT="/var/www/ptodd.org"
 
 # ─── Step 1: Swap file (OOM guard on t3.micro) ────────────────────────────────
 

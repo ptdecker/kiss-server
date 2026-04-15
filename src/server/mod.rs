@@ -24,8 +24,6 @@ pub use request::RequestMethod;
 pub use response::Response;
 pub use router::Router;
 
-use super::*;
-
 use crate::time::DateTime;
 
 mod context;
@@ -94,9 +92,9 @@ impl Server {
     }
 }
 
-/// Send a minimal error response to the client and discard any write failure.
+/// Send a minimal error response to the client and discard any writing failure.
 ///
-/// This is called on error paths where the BufReader has already been dropped
+/// This is called on error paths where the BufReader has already been dropped,
 /// and the stream is available for writing again.
 fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str, message: &str) {
     let body = message.as_bytes().to_vec();
@@ -105,7 +103,7 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
         .header("Content-Type", "text/plain")
         .header("Content-Length", &content_length)
         .header("Connection", "close");
-    // Best-effort Date header — omit if clock fails rather than panic
+    // Best-effort Date header — omit if a clock fails rather than panic
     if let Ok(dt) = DateTime::now() {
         let date = dt.to_imf_fixdate();
         response = response.header("Date", &date);
@@ -142,7 +140,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
                 }
                 Err(e) => {
                     // Collect the error and exit the loop.
-                    // We cannot call send_error_response here — reader still borrows stream.
+                    // We cannot call send_error_response here — the reader still borrows stream.
                     // Handle after the block once BufReader is dropped.
                     read_error = Some(e);
                     break;
@@ -208,12 +206,15 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         return Err(e);
     }
 
-    // Inject Date header after dispatch (HTTP-03: every response must have Date)
+    // Inject a Date header after dispatch (HTTP-03: every response must have Date)
     if let Ok(dt) = DateTime::now() {
         ctx.response.add_header("Date", &dt.to_imf_fixdate());
     }
 
-    if ENABLE_POWERED_BY {
+    // This rather dumb lint suppression is needed to make either Clippy or RustRover happy with us
+    // temporarily using a constant here instead of a configuration option
+    #[allow(clippy::bool_comparison)]
+    if ENABLE_POWERED_BY == true {
         ctx.response.add_header(
             "X-Powered-By",
             concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
@@ -261,8 +262,8 @@ mod tests {
     }
 
     fn spawn_handle_connection_test(send_bytes: &'static [u8], router: Arc<Router>) -> Result<()> {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
             client.write_all(send_bytes).unwrap();
@@ -270,7 +271,7 @@ mod tests {
             let mut buf = Vec::new();
             let _ = client.read_to_end(&mut buf);
         });
-        let (stream, _) = listener.accept().unwrap();
+        let (stream, _) = listener.accept()?;
         let result = handle_connection(stream, router);
         client_thread.join().unwrap();
         result

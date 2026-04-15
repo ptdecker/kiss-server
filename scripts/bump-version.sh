@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # bump-version.sh
-# Updates Cargo.toml to the given version and regenerates Cargo.lock.
-# Run this on a feature branch before updating CHANGELOG.md and opening a PR.
+#
+# Updates Cargo.toml to the given version and regenerates Cargo.lock. Run this on a feature 
+# branch before updating CHANGELOG.md and opening a PR.
 #
 # Usage: bash scripts/bump-version.sh VERSION
 # Example: bash scripts/bump-version.sh 1.3.0
+
+set -euo pipefail
 
 VERSION="${1:-}"
 

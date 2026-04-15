@@ -7,7 +7,7 @@ kiss-server uses GitHub Actions for continuous integration and continuous deploy
 - **Trigger:** Every push to `main` and every pull request targeting `main` (configured in
   `.github/workflows/ci.yml`)
 - **Runner:** `ubuntu-latest`
-- **Toolchain:** Rust 1.93.1 pinned via `dtolnay/rust-toolchain@master` (version also in
+- **Toolchain:** Rust 1.93.1 pinned via `dtolnay/rust-toolchain@master` (a version also in
   `rust-toolchain.toml` for local dev)
 - **Cache:** `Swatinem/rust-cache@v2` with `cache-on-failure: true` — caches Cargo registry and
   build artifacts between runs
@@ -42,12 +42,12 @@ kiss-server uses GitHub Actions for continuous integration and continuous deploy
     - `curl -s -o /dev/null -w '%{http_code}' https://www.ptodd.org/` should return `200`
     - SSH and check: `ssh ec2-user@54.83.192.65 "sudo systemctl is-active kiss-server"` should print
       `active`
-    - Check CD run log for CloudFront invalidation ID (confirms cache was cleared)
+    - Check the CD run log for CloudFront invalidation ID (confirms cache was cleared)
 
 ## CloudFront Cache Invalidation
 
-Every successful deploy automatically invalidates the CloudFront cache so visitors see the latest
-content without waiting for TTL expiry.
+Every successful deployment automatically invalidates the CloudFront cache, so visitors see the
+latest content without waiting for TTL expiry.
 
 ### What Happens
 
@@ -73,6 +73,7 @@ single action on a single resource:
 - **Resource:** `arn:aws:cloudfront::859953692821:distribution/E2JG60F8N1ZBAK`
 
 The credentials are stored as GitHub Secrets:
+
 - `CF_AWS_ACCESS_KEY_ID` — access key for kiss-cd-cloudfront
 - `CF_AWS_SECRET_ACCESS_KEY` — secret key for kiss-cd-cloudfront
 - `CLOUDFRONT_DISTRIBUTION_ID` — distribution ID (`E2JG60F8N1ZBAK`)
@@ -82,8 +83,8 @@ exposed to the SSH deploy steps.
 
 ### Verifying Invalidation
 
-After a deploy, check the GitHub Actions CD run log for the invalidation step output. It prints the
-invalidation ID. To check status:
+After a deployment, check the GitHub Actions CD run log for the invalidation step output. It prints
+the invalidation ID. To check status:
 
 ```bash
 aws cloudfront get-invalidation \
@@ -93,7 +94,7 @@ aws cloudfront get-invalidation \
 ```
 
 Status progresses from `InProgress` to `Completed`. You can also verify by checking that
-`https://www.ptodd.org/` serves the updated content after deploy.
+`https://www.ptodd.org/` serves the updated content after deployment.
 
 ## Checking EC2 Health
 
@@ -160,7 +161,8 @@ High-level steps to recreate the full infrastructure and pipeline from zero. See
 
 Convenience recipes for pipeline and infrastructure operations:
 
-- `just deploy <VERSION>` — tag the current commit as `vVERSION` and push to prod, triggering the CD pipeline (e.g., `just deploy 1.2.0`)
+- `just deploy <VERSION>` — tag the current commit as `vVERSION` and push to prod, triggering the CD
+  pipeline (e.g., `just deploy 1.2.0`)
 - `just verify-dns` — run DNS smoke tests for ptodd.org and www.ptodd.org
 - `just branch-protection` — apply or update main branch protection rules via GitHub API
 - `just prod-protection` — apply or update prod branch protection rules via GitHub API

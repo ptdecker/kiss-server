@@ -1,6 +1,6 @@
 //! Virtual host dispatcher handler.
 //!
-//! Routes HTTP requests to per-domain [`super::StaticFileHandler`] instances based on
+//! Routes HTTP requests to per-domain [`StaticFileHandler`] instances based on
 //! the normalized Host header value. Unknown domains receive a parked-domain HTML page
 //! (or are forwarded to a configured default handler).
 

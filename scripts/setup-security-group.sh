@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-security-group.sh
-# Idempotent script to restrict EC2 port 80 inbound to CloudFront IPs only.
-# Adds CloudFront managed prefix list rule, verifies HTTPS, then removes 0.0.0.0/0.
+#
+# Idempotent script to restrict EC2 port 80 inbound to CloudFront IPs only. Adds CloudFront 
+# managed prefix list rule, verifies HTTPS, then removes 0.0.0.0/0.
 #
 # IMPORTANT: The order is locked and irreversible (see STATE.md):
 #   1. Add CloudFront prefix list rule
@@ -12,6 +11,8 @@ set -euo pipefail
 #
 # Usage: bash scripts/setup-security-group.sh
 # Requirements: AWS CLI v2 configured with the 'kiss' profile
+
+set -euo pipefail
 
 PROFILE="kiss"
 REGION="us-east-1"

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-branch-protection.sh
-# Idempotent script to create or update the "Protect main" ruleset
-# on ptdecker/kiss-server via the GitHub Rulesets API.
+#
+# Idempotent script to create or update the "Protect main" ruleset on ptdecker/kiss-server via 
+# the GitHub Rulesets API.
 #
 # Usage: bash scripts/setup-branch-protection.sh
 # Requirements: gh CLI authenticated as ptdecker
+
+set -euo pipefail
 
 REPO="ptdecker/kiss-server"
 RULESET_NAME="Protect main"

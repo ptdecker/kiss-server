@@ -4,7 +4,7 @@ use std::io::Write;
 
 /// An HTTP/1.1 response, constructed via a value-chaining builder.
 ///
-/// Build order: Response::new(status, reason).header(k, v)....body(bytes)
+/// Build order: Response::new(status, reason).header(k, v)...body(bytes)
 /// Send order: response.write_to(&mut stream)?
 pub struct Response {
     status: u16,
@@ -129,7 +129,7 @@ mod tests {
             .body(b"hello".to_vec())
             .write_to(&mut buf)
             .unwrap();
-        // body appears after the blank separator
+        // the body appears after the blank separator
         let sep = b"\r\n\r\n";
         let sep_pos = buf
             .windows(4)
@@ -207,7 +207,10 @@ mod tests {
     #[test]
     fn body_len_accessor_returns_byte_count() {
         assert_eq!(Response::new(200, "OK").body_len(), 0);
-        assert_eq!(Response::new(200, "OK").body(b"hello".to_vec()).body_len(), 5);
+        assert_eq!(
+            Response::new(200, "OK").body(b"hello".to_vec()).body_len(),
+            5
+        );
         assert_eq!(Response::new(200, "OK").body(b"AB".to_vec()).body_len(), 2);
     }
 }

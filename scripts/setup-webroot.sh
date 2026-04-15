@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-webroot.sh
-# Idempotent script to create the web root directory and write index.html
-# for the kiss-server static file server on an Amazon Linux 2023 EC2 instance.
+#
+# Idempotent script to create the web root directory and write index.html for the kiss-server 
+# static file server on an Amazon Linux 2023 EC2 instance.
 #
 # Usage: bash scripts/setup-webroot.sh
 # Requirements: Must be run on the EC2 instance (not the local machine)
@@ -12,6 +11,8 @@ set -euo pipefail
 #   1. Create /var/www/ptodd.org/ directory
 #   2. Set ownership (root:root, world-readable)
 #   3. Write index.html placeholder
+
+set -euo pipefail
 
 WEBROOT="/var/www/ptodd.org"
 INDEX_FILE="$WEBROOT/index.html"

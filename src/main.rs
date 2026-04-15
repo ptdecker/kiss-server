@@ -23,7 +23,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// Returns the validated path (confirms it is a directory before returning).
 /// `StaticFileHandler::new()` will canonicalize it further.
-fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
+fn parse_root_from(args: &[String]) -> Result<std::path::PathBuf> {
     if let Some(pos) = args.iter().position(|a| a == "--root") {
         let path_str = args.get(pos + 1).ok_or("--root requires a path argument")?;
         let path = std::path::PathBuf::from(path_str);
@@ -40,7 +40,7 @@ fn parse_root_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
 ///
 /// Returns the validated path (confirms it is a file before returning).
 /// `Config::load()` will parse the TOML content.
-fn parse_config_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
+fn parse_config_from(args: &[String]) -> Result<std::path::PathBuf> {
     if let Some(pos) = args.iter().position(|a| a == "--config") {
         let path_str = args
             .get(pos + 1)
@@ -58,7 +58,7 @@ fn parse_config_from(args: &[String]) -> crate::Result<std::path::PathBuf> {
 /// Parses `--port <num>` from the provided args slice (excluding the binary name at index 0).
 ///
 /// Returns the port number as `u16`, or `DEFAULT_PORT` if `--port` is absent.
-fn parse_port_from(args: &[String]) -> crate::Result<u16> {
+fn parse_port_from(args: &[String]) -> Result<u16> {
     if let Some(pos) = args.iter().position(|a| a == "--port") {
         let port_str = args.get(pos + 1).ok_or("--port requires a port number")?;
         let port: u16 = port_str
@@ -76,7 +76,7 @@ fn parse_port_from(args: &[String]) -> crate::Result<u16> {
 /// - `--root <path>`: synthesizes a dispatcher with a single default handler (backward compat).
 /// - Both flags together: returns an error.
 /// - Neither flag: returns an error.
-fn build_dispatcher(args: &[String]) -> crate::Result<handlers::VhostDispatcher> {
+fn build_dispatcher(args: &[String]) -> Result<handlers::VhostDispatcher> {
     let has_config = args.iter().any(|a| a == "--config");
     let has_root = args.iter().any(|a| a == "--root");
 

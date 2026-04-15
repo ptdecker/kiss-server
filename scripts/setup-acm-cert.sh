@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-acm-cert.sh
-# Idempotent script to request an ACM certificate for ptodd.org and www.ptodd.org
-# in us-east-1 with DNS validation, then print human-readable CNAME validation
-# instructions formatted for GoDaddy's subdomain-prefix-only input requirement.
+#
+# Idempotent script to request an ACM certificate for ptodd.org and www.ptodd.org in us-east-1 with
+# DNS validation, then print human-readable CNAME validation instructions formatted for GoDaddy's
+# subdomain-prefix-only input requirement.
 #
 # Usage: bash scripts/setup-acm-cert.sh
 # Requirements: AWS CLI v2 configured with the 'kiss' profile
 #
 # Resources provisioned:
 #   - ACM certificate (us-east-1): ptodd.org + www.ptodd.org (DNS-validated, auto-renewing)
+
+set -euo pipefail
 
 REGION="us-east-1"
 PROFILE="kiss"

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # setup-aws-infra.sh
-# Idempotent script to provision EC2 t3.micro, Security Group, and Elastic IP
-# for the kiss-server deployment in us-east-1.
+#
+# Idempotent script to provision EC2 t3.micro, Security Group, and Elastic IP for the kiss-server
+# deployment in us-east-1.
 #
 # Usage: bash scripts/setup-aws-infra.sh
 # Requirements: AWS CLI v2 configured with the 'kiss' profile
@@ -13,6 +12,8 @@ set -euo pipefail
 #   - Security Group: kiss-server-sg (ports 22 and 80 open to 0.0.0.0/0)
 #   - EC2 instance: t3.micro, Amazon Linux 2023, tagged Name=kiss-server
 #   - Elastic IP: allocated and associated with the instance
+
+set -euo pipefail
 
 REGION="us-east-1"
 KEY_NAME="kiss-server"
