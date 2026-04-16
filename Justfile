@@ -1,5 +1,9 @@
 set dotenv-load
 
+# Install git hooks from scripts/
+install-hooks:
+    @bash scripts/install-hooks.sh
+
 # Lint the project
 lint:
     @cargo fmt
