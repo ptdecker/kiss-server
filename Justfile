@@ -13,9 +13,9 @@ lint:
 build: lint
     @cargo build
 
-# Run the web site from source
-run: build
-    @cargo run
+# Run the web site from source (pass args after --: just run -- --config kiss-server.toml)
+run *ARGS: build
+    @cargo run -- {{ARGS}}
 
 # Test the web site from source
 test: build
