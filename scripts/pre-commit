@@ -12,6 +12,17 @@ if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "prod" ]; then
     exit 1
 fi
 
+# Block .planning/ files from being committed (.planning/ is gitignored — local only)
+PLANNING_STAGED=$(git diff --cached --name-only | grep "^\.planning/" || true)
+if [ -n "$PLANNING_STAGED" ]; then
+    echo "ERROR: .planning/ files are staged for commit:"
+    echo "$PLANNING_STAGED"
+    echo ""
+    echo ".planning/ is gitignored and must stay local."
+    echo "To unstage: git rm --cached <file>"
+    exit 1
+fi
+
 if ! cargo fmt -- --check
 then
     echo "There are some code style issues."
