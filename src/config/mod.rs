@@ -25,8 +25,6 @@ pub struct ServerConfig {
 pub struct Config {
     pub server: ServerConfig,
     pub vhosts: Vec<VhostEntry>,
-    // plugins field is consumed by main.rs plugin activation loop (Phase 21, Plan 02)
-    #[cfg_attr(not(test), allow(dead_code))]
     pub plugins: Vec<PluginConfig>,
 }
 

@@ -70,13 +70,16 @@ fn parse_port_from(args: &[String]) -> Result<u16> {
     }
 }
 
-/// Builds a [`handlers::VhostDispatcher`] from CLI args.
+/// Builds a [`handlers::VhostDispatcher`] from CLI args, returning it alongside any
+/// plugin configs parsed from the TOML config file.
 ///
 /// - `--config <path>`: loads TOML config and creates per-domain handlers.
 /// - `--root <path>`: synthesizes a dispatcher with a single default handler (backward compat).
 /// - Both flags together: returns an error.
 /// - Neither flag: returns an error.
-fn build_dispatcher(args: &[String]) -> Result<handlers::VhostDispatcher> {
+fn build_dispatcher(
+    args: &[String],
+) -> Result<(handlers::VhostDispatcher, Vec<config::PluginConfig>)> {
     let has_config = args.iter().any(|a| a == "--config");
     let has_root = args.iter().any(|a| a == "--root");
 
@@ -117,14 +120,17 @@ fn build_dispatcher(args: &[String]) -> Result<handlers::VhostDispatcher> {
             None => None,
         };
 
-        Ok(handlers::VhostDispatcher::new(vhosts, default_handler))
+        Ok((
+            handlers::VhostDispatcher::new(vhosts, default_handler),
+            config.plugins,
+        ))
     } else if has_root {
         let root = parse_root_from(args)?;
         info!("Serving static files from root: {}", root.display());
         let handler = handlers::StaticFileHandler::new(root)?;
-        Ok(handlers::VhostDispatcher::new(
-            std::collections::HashMap::new(),
-            Some(handler),
+        Ok((
+            handlers::VhostDispatcher::new(std::collections::HashMap::new(), Some(handler)),
+            Vec::new(),
         ))
     } else {
         Err("either --config <path> or --root <path> is required".into())
@@ -136,8 +142,29 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let port = parse_port_from(&args)?;
     let addr = format!("0.0.0.0:{}", port);
-    let dispatcher = build_dispatcher(&args)?;
+    let (dispatcher, plugin_configs) = build_dispatcher(&args)?;
     let router = Router::new().set_fallback(dispatcher);
+
+    if !plugin_configs.is_empty() {
+        info!("{} plugin(s) configured", plugin_configs.len());
+    }
+
+    // Plugin activation: map each configured plugin name to its constructor (PLUG-03, D-03, D-08).
+    // Phase 23 will add real arms here, e.g.:
+    //   "url-shortener" => { let p = UrlShortener::new(cfg); router.add_prefix(p.path_prefix(), p); }
+    // Until then, any [[plugin]] in the TOML is an unknown plugin and produces a startup error.
+    let unknown_plugin = plugin_configs
+        .iter()
+        .find(|p| !matches!(p.name.as_str(), _ if false));
+    if let Some(plugin_config) = unknown_plugin {
+        return Err(format!(
+            "unknown plugin '{}': not registered in main.rs; \
+             add a match arm or remove the [[plugin]] block from kiss-server.toml",
+            plugin_config.name
+        )
+        .into());
+    }
+
     Server::new(&addr)?.with_router(router).run()?;
     Ok(())
 }
