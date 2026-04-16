@@ -10,6 +10,7 @@ use super::{
 /// built-in `NotFoundHandler` (404) when no fallback is registered.
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
+    prefix_routes: Vec<(String, Box<dyn Handler>)>,
     fallback: Option<Box<dyn Handler>>,
 }
 
@@ -17,6 +18,7 @@ impl std::fmt::Debug for Router {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Router")
             .field("routes_count", &self.routes.len())
+            .field("prefix_routes_count", &self.prefix_routes.len())
             .field("has_fallback", &self.fallback.is_some())
             .finish()
     }
@@ -27,6 +29,7 @@ impl Router {
     pub fn new() -> Self {
         Router {
             routes: Vec::new(),
+            prefix_routes: Vec::new(),
             fallback: None,
         }
     }
@@ -56,6 +59,16 @@ impl Router {
         Ok(())
     }
 
+    /// Register a handler for all requests whose decoded path starts with `prefix`.
+    ///
+    /// Prefix routes are checked after exact-match routes but before the fallback.
+    /// Routes are tried in registration order; the first match wins (PLUG-04).
+    /// Register more-specific prefixes before less-specific ones.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn add_prefix(&mut self, prefix: impl Into<String>, handler: impl Handler + 'static) {
+        self.prefix_routes.push((prefix.into(), Box::new(handler)));
+    }
+
     /// Dispatch the request in `ctx` to the first matching handler.
     ///
     /// The path is percent-decoded before routing. Invalid %-sequences and paths
@@ -76,6 +89,12 @@ impl Router {
         let method = &ctx.request.method;
         for (route_method, route_path, handler) in &self.routes {
             if route_method == method && route_path.as_str() == decoded.as_str() {
+                return handler.handle(ctx);
+            }
+        }
+        // Prefix routes: checked after exact matches, before fallback (PLUG-04)
+        for (prefix, handler) in &self.prefix_routes {
+            if decoded.starts_with(prefix.as_str()) {
                 return handler.handle(ctx);
             }
         }
@@ -418,6 +437,171 @@ mod tests {
             body, "Not Found\n",
             "NotFoundHandler body must end with newline, got: {:?}",
             body
+        );
+    }
+
+    // --- Prefix route tests (Phase 21: PLUG-02, PLUG-04) ---
+
+    #[test]
+    fn add_prefix_registers_prefix_route() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        assert_eq!(
+            router.prefix_routes.len(),
+            1,
+            "expected 1 prefix route after add_prefix"
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_matches_starts_with() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "prefix /s should match /s/abc, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_exact_prefix_matches() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/s");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "prefix /s should match exact /s, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_no_match_returns_404() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/other");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "prefix /s should not match /other, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_exact_route_wins_over_prefix_route() {
+        struct ExactHandler;
+        impl Handler for ExactHandler {
+            fn handle(&self, ctx: &mut Context) -> Result<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add("GET", "/health", ExactHandler).unwrap();
+        router.add_prefix("/h", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/health");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 201"),
+            "exact /health should win over prefix /h, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_first_match_wins() {
+        struct SecondHandler;
+        impl Handler for SecondHandler {
+            fn handle(&self, ctx: &mut Context) -> Result<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", SecondHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "first prefix registration should win, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_longer_prefix_wins_when_registered_first() {
+        struct LongPrefixHandler;
+        impl Handler for LongPrefixHandler {
+            fn handle(&self, ctx: &mut Context) -> Result<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add_prefix("/s/featured", LongPrefixHandler);
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/featured/item");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 201"),
+            "longer prefix /s/featured registered first should win, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_dotdot_returns_404() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/../s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "dotdot should be rejected before prefix matching, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_with_fallback_unmatched_goes_to_fallback() {
+        let mut router = Router::new().set_fallback(OkFallbackHandler);
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/other");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.contains("fallback"),
+            "unmatched prefix should fall through to fallback, got: {:?}",
+            output
         );
     }
 }
