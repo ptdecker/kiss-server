@@ -13,9 +13,10 @@ lint:
 build: lint
     @cargo build
 
-# Run the web site from source (pass args after --: just run -- --config kiss-server.toml)
+# Run the web site from source. Defaults to --root . for local dev.
+# Override: just run -- --config /path/to/kiss-server.toml
 run *ARGS: build
-    @cargo run -- {{ARGS}}
+    @cargo run -- $([ -z "{{ARGS}}" ] && echo "--root ." || echo "{{ARGS}}")
 
 # Test the web site from source
 test: build
