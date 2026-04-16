@@ -1,0 +1,34 @@
+#!/bin/sh
+# scripts/pre-commit — canonical pre-commit hook source
+# Install with: just install-hooks
+
+set -eu
+
+# Block direct commits to protected branches
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "prod" ]; then
+    echo "ERROR: Direct commits to '$BRANCH' are not allowed."
+    echo "Create a feature branch: git checkout -b <branch-name>"
+    exit 1
+fi
+
+if ! cargo fmt -- --check
+then
+    echo "There are some code style issues."
+    echo "Run cargo fmt first."
+    exit 1
+fi
+
+if ! cargo clippy --all-targets -- -D warnings
+then
+    echo "There are some clippy issues."
+    exit 1
+fi
+
+if ! cargo test
+then
+    echo "There are some test issues."
+    exit 1
+fi
+
+exit 0
