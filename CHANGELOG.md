@@ -20,10 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registers with the router; unknown plugin names produce a clear startup error (not a panic)
 - `test_context(method, path)` helper in `src/server/test_support.rs`: constructs a `Context`
   for unit-testing plugin `handle()` implementations without a live server (PLUG-06)
-- Architecture decision record (`.planning/decisions/v1.5-plugin-arch.md`): documents dynamic
-  library rejection (ARCH-01), trait-object pattern selection (ARCH-02), auth-as-middleware
-  rationale with CVE evidence (AUTH-01), MVP auth strategy via Lambda@Edge + header trust
-  (AUTH-02), and post-MVP Rust-native JWT replacement path (AUTH-03)
+- Architecture decision record: documents dynamic library rejection (ARCH-01), trait-object
+  pattern selection (ARCH-02), auth-as-middleware rationale with CVE evidence (AUTH-01), MVP
+  auth strategy via Lambda@Edge + header trust (AUTH-02), and post-MVP Rust-native JWT
+  replacement path (AUTH-03)
 - `scripts/pre-commit` hook: runs `cargo test` before every commit; `scripts/install-hooks.sh`
   wires it into `.git/hooks`; `just install-hooks` installs it in one step
 

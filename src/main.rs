@@ -150,13 +150,10 @@ fn main() -> Result<()> {
     }
 
     // Plugin activation: map each configured plugin name to its constructor (PLUG-03, D-03, D-08).
-    // Phase 23 will add real arms here, e.g.:
+    // Phase 23 will add real match arms here, e.g.:
     //   "url-shortener" => { let p = UrlShortener::new(cfg); router.add_prefix(p.path_prefix(), p); }
-    // Until then, any [[plugin]] in the TOML is an unknown plugin and produces a startup error.
-    let unknown_plugin = plugin_configs
-        .iter()
-        .find(|p| !matches!(p.name.as_str(), _ if false));
-    if let Some(plugin_config) = unknown_plugin {
+    // Until then, no plugins are registered — any [[plugin]] in the TOML is unknown.
+    if let Some(plugin_config) = plugin_configs.first() {
         return Err(format!(
             "unknown plugin '{}': not registered in main.rs; \
              add a match arm or remove the [[plugin]] block from kiss-server.toml",

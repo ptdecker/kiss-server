@@ -66,7 +66,12 @@ impl Router {
     /// Register more-specific prefixes before less-specific ones.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn add_prefix(&mut self, prefix: impl Into<String>, handler: impl Handler + 'static) {
-        self.prefix_routes.push((prefix.into(), Box::new(handler)));
+        let prefix = prefix.into();
+        assert!(
+            !prefix.is_empty(),
+            "plugin prefix must be non-empty (starts_with(\"\") matches all paths)"
+        );
+        self.prefix_routes.push((prefix, Box::new(handler)));
     }
 
     /// Dispatch the request in `ctx` to the first matching handler.

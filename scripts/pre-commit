@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # scripts/pre-commit — canonical pre-commit hook source
 # Install with: just install-hooks
 
-set -eu
+set -euo pipefail
 
 # Block direct commits to protected branches
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")

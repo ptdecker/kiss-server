@@ -231,13 +231,13 @@ impl Config {
 
         // Commit final in-progress vhost
         if let Some(entry) = current_vhost.take() {
-            let last_lineno = input.lines().count();
+            let last_lineno = input.lines().count().saturating_sub(1);
             vhosts.push(commit_vhost(entry, last_lineno)?);
         }
 
         // Commit final in-progress plugin
         if let Some(entry) = current_plugin.take() {
-            let last_lineno = input.lines().count();
+            let last_lineno = input.lines().count().saturating_sub(1);
             plugins.push(commit_plugin(entry, last_lineno)?);
         }
 
