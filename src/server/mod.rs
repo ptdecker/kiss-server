@@ -29,11 +29,17 @@ use crate::time::DateTime;
 mod context;
 mod error;
 mod handler;
+mod plugin;
+#[allow(unused_imports)]
+pub use plugin::KissPlugin;
 mod pool;
 mod request;
 mod response;
 mod router;
 mod worker;
+
+#[cfg(test)]
+mod test_support;
 
 /// Tread pool size
 const DEFAULT_POOL_SIZE: usize = 4;
