@@ -36,6 +36,15 @@ pub struct MiddlewareChain {
     public_routes: Vec<String>,
 }
 
+impl std::fmt::Debug for MiddlewareChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MiddlewareChain")
+            .field("middleware_count", &self.middleware.len())
+            .field("public_routes", &self.public_routes)
+            .finish()
+    }
+}
+
 #[allow(dead_code)]
 impl MiddlewareChain {
     /// Create an empty middleware chain.

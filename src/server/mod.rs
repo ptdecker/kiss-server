@@ -21,6 +21,7 @@ pub use context::AuthClaims;
 pub use context::Context;
 pub use error::{Error, Result};
 pub use handler::Handler;
+use middleware::MiddlewareResult as MwResult;
 #[allow(unused_imports)]
 pub use middleware::{Middleware, MiddlewareChain, MiddlewareResult};
 use pool::ThreadPool;
@@ -69,6 +70,8 @@ pub struct Server {
     pool: ThreadPool,
     /// The router, which dispatches requests to handlers.
     router: Arc<Router>,
+    /// The middleware chain, which runs before dispatch.
+    middleware: Arc<middleware::MiddlewareChain>,
 }
 
 impl Server {
@@ -79,6 +82,7 @@ impl Server {
             listener: TcpListener::bind(&addr)?,
             pool: ThreadPool::build(DEFAULT_POOL_SIZE)?,
             router: Arc::new(Router::new()),
+            middleware: Arc::new(middleware::MiddlewareChain::new()),
         })
     }
 
@@ -89,12 +93,21 @@ impl Server {
         self
     }
 
+    /// Set the middleware chain for this server (builder pattern).
+    /// If not called, an empty chain is used (no middleware runs).
+    #[allow(dead_code)]
+    pub fn with_middleware(mut self, chain: middleware::MiddlewareChain) -> Self {
+        self.middleware = Arc::new(chain);
+        self
+    }
+
     pub fn run(&self) -> Result<()> {
         info!("Listening for connections on {}", &self.addr);
         for stream_result in self.listener.incoming() {
-            let router = Arc::clone(&self.router); // clone BEFORE move closure
+            let router = Arc::clone(&self.router);
+            let middleware = Arc::clone(&self.middleware);
             self.pool.execute(move || match stream_result {
-                Ok(stream) => handle_connection(stream, router)
+                Ok(stream) => handle_connection(stream, router, middleware)
                     .unwrap_or_else(|e| warn!("handle_connection: {}", e)),
                 Err(e) => {
                     warn!("thread: {}", e);
@@ -127,7 +140,32 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
     let _ = response.write_to(stream);
 }
 
-fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
+/// Inject Date, X-Powered-By, and Connection headers into ctx.response.
+///
+/// Called on both the normal dispatch path and the middleware short-circuit path
+/// to ensure consistent HTTP response headers regardless of how the response was
+/// generated.
+fn inject_standard_headers(ctx: &mut Context) {
+    if let Ok(dt) = DateTime::now() {
+        ctx.response.add_header("Date", &dt.to_imf_fixdate());
+    }
+    // This rather dumb lint suppression is needed to make either Clippy or RustRover happy with us
+    // temporarily using a constant here instead of a configuration option
+    #[allow(clippy::bool_comparison)]
+    if ENABLE_POWERED_BY == true {
+        ctx.response.add_header(
+            "X-Powered-By",
+            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
+        );
+    }
+    ctx.response.add_header("Connection", "close");
+}
+
+fn handle_connection(
+    mut stream: TcpStream,
+    router: Arc<Router>,
+    middleware: Arc<middleware::MiddlewareChain>,
+) -> Result<()> {
     let start = Instant::now();
     debug!("handling a connection");
     stream.set_read_timeout(Some(Duration::from_secs(READ_TIMEOUT_SECS)))?;
@@ -210,6 +248,36 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         auth: None,
     };
 
+    // Run middleware chain before dispatch (MIDL-01).
+    // ShortCircuit means middleware wrote ctx.response — skip dispatch entirely (MIDL-02).
+    if let MwResult::ShortCircuit = middleware.run(&mut ctx) {
+        inject_standard_headers(&mut ctx);
+
+        // Capture access log fields before write_to consumes the response
+        let resp_status = ctx.response.status();
+        let resp_bytes = ctx.response.body_len();
+        let host_val = ctx.request.host.as_deref().unwrap_or("-").to_string();
+        let method_str = ctx.request.method.to_string();
+        let target_str = ctx.request.target.clone();
+
+        ctx.response.write_to(&mut stream)?;
+
+        let elapsed_ms = start.elapsed().as_millis();
+        info!(
+            target: "access",
+            "{} HTTP/1.1 {} {} host={} status={} bytes={} duration_ms={}",
+            peer,
+            method_str,
+            target_str,
+            host_val,
+            resp_status,
+            resp_bytes,
+            elapsed_ms
+        );
+
+        return Ok(());
+    }
+
     if let Err(e) = router.dispatch(&mut ctx) {
         warn!("handler error: {}", e);
         send_error_response(
@@ -221,22 +289,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         return Err(e);
     }
 
-    // Inject a Date header after dispatch (HTTP-03: every response must have Date)
-    if let Ok(dt) = DateTime::now() {
-        ctx.response.add_header("Date", &dt.to_imf_fixdate());
-    }
-
-    // This rather dumb lint suppression is needed to make either Clippy or RustRover happy with us
-    // temporarily using a constant here instead of a configuration option
-    #[allow(clippy::bool_comparison)]
-    if ENABLE_POWERED_BY == true {
-        ctx.response.add_header(
-            "X-Powered-By",
-            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
-        );
-    }
-
-    ctx.response.add_header("Connection", "close");
+    inject_standard_headers(&mut ctx);
 
     // Capture access log fields before write_to consumes the response
     let resp_status = ctx.response.status();
@@ -287,7 +340,8 @@ mod tests {
             let _ = client.read_to_end(&mut buf);
         });
         let (stream, _) = listener.accept()?;
-        let result = handle_connection(stream, router);
+        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        let result = handle_connection(stream, router, middleware);
         client_thread.join().unwrap();
         result
     }
@@ -335,7 +389,8 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        handle_connection(stream, Arc::new(router)).unwrap();
+        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(response.contains("HTTP/1.1 200 OK"), "missing status line");
         assert!(response.contains("Content-Type:"), "missing Content-Type");
@@ -363,7 +418,8 @@ mod tests {
         });
         let (stream, _) = listener.accept().unwrap();
         // Empty router — no routes registered
-        handle_connection(stream, Arc::new(Router::new())).unwrap();
+        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        handle_connection(stream, Arc::new(Router::new()), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
             response.contains("HTTP/1.1 404"),
@@ -390,7 +446,8 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        handle_connection(stream, Arc::new(router)).unwrap();
+        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
             response.contains("X-Powered-By: kiss-serve/"),
