@@ -66,9 +66,20 @@ pub struct Request {
     pub target: Url,
     // The Host header value, extracted raw (not normalized). None if absent.
     pub host: Option<String>,
+    // All header lines from the request, collected as (name, value) pairs.
+    pub headers: Vec<(String, String)>,
 }
 
 impl Request {
+    /// Case-insensitive header lookup. Returns the value of the first matching header.
+    #[allow(dead_code)]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+
     pub fn parse(raw_request: &[String]) -> Result<Request> {
         if raw_request.len() > MAX_HEADER_LINES {
             return Err(Error::RequestTooLarge);
@@ -98,10 +109,20 @@ impl Request {
                 None
             }
         });
+        let headers: Vec<(String, String)> = raw_request[1..]
+            .iter()
+            .filter_map(|line| {
+                let colon_pos = line.find(':')?;
+                let name = line[..colon_pos].trim().to_string();
+                let value = line[colon_pos + 1..].trim().to_string();
+                Some((name, value))
+            })
+            .collect();
         Ok(Request {
             method: control_data_parts[0].try_into()?,
             target: control_data_parts[1].into(),
             host,
+            headers,
         })
     }
 }
@@ -169,5 +190,47 @@ mod tests {
         let lines = vec!["GET / HTTP/1.1".to_string()];
         let req = Request::parse(&lines).unwrap();
         assert_eq!(req.host, None);
+    }
+
+    #[test]
+    fn parse_collects_all_headers() {
+        let lines = vec![
+            "GET / HTTP/1.1".to_string(),
+            "Host: example.com".to_string(),
+            "X-Custom: value1".to_string(),
+            "Accept: text/html".to_string(),
+        ];
+        let req = Request::parse(&lines).unwrap();
+        assert_eq!(req.headers.len(), 3, "should collect all 3 header lines");
+    }
+
+    #[test]
+    fn header_accessor_case_insensitive() {
+        let lines = vec![
+            "GET / HTTP/1.1".to_string(),
+            "X-Authenticated-User: alice".to_string(),
+        ];
+        let req = Request::parse(&lines).unwrap();
+        assert_eq!(req.header("x-authenticated-user"), Some("alice"));
+        assert_eq!(req.header("X-AUTHENTICATED-USER"), Some("alice"));
+        assert_eq!(req.header("X-Authenticated-User"), Some("alice"));
+    }
+
+    #[test]
+    fn header_accessor_missing_header_returns_none() {
+        let lines = vec!["GET / HTTP/1.1".to_string()];
+        let req = Request::parse(&lines).unwrap();
+        assert_eq!(req.header("X-Missing"), None);
+    }
+
+    #[test]
+    fn header_accessor_returns_first_match() {
+        let lines = vec![
+            "GET / HTTP/1.1".to_string(),
+            "X-Dup: first".to_string(),
+            "X-Dup: second".to_string(),
+        ];
+        let req = Request::parse(&lines).unwrap();
+        assert_eq!(req.header("X-Dup"), Some("first"));
     }
 }

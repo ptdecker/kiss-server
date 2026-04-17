@@ -122,8 +122,10 @@ mod tests {
                 method: RequestMethod::Get,
                 target: Url::from("/"),
                 host: host.map(|h| h.to_string()),
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
         }
     }
 
@@ -133,8 +135,10 @@ mod tests {
                 method: RequestMethod::Get,
                 target: Url::from(path),
                 host: host.map(|h| h.to_string()),
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
         }
     }
 

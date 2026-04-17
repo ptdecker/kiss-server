@@ -27,8 +27,30 @@ pub fn test_context(method: &str, path: &str) -> Context {
             method: RequestMethod::try_from(method).expect("test_context: invalid HTTP method"),
             target: Url::from(path),
             host: None,
+            headers: Vec::new(),
         },
         response: Response::new(200, "OK"),
+        auth: None,
+    }
+}
+
+/// Construct a `Context` with custom request headers for middleware tests.
+///
+/// Header names and values are provided as `(&str, &str)` tuples.
+/// Headers are stored exactly as provided (case preserved).
+pub fn test_context_with_headers(method: &str, path: &str, headers: &[(&str, &str)]) -> Context {
+    Context {
+        request: Request {
+            method: RequestMethod::try_from(method).expect("test_context: invalid HTTP method"),
+            target: Url::from(path),
+            host: None,
+            headers: headers
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        },
+        response: Response::new(200, "OK"),
+        auth: None,
     }
 }
 
@@ -61,5 +83,12 @@ mod tests {
     #[should_panic(expected = "test_context: invalid HTTP method")]
     fn test_context_invalid_method_panics() {
         let _ctx = test_context("INVALID", "/");
+    }
+
+    #[test]
+    fn test_context_with_headers_injects_headers() {
+        let ctx = test_context_with_headers("GET", "/", &[("X-Auth", "user1")]);
+        assert_eq!(ctx.request.header("x-auth"), Some("user1"));
+        assert!(ctx.auth.is_none(), "auth should default to None");
     }
 }

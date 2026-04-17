@@ -153,8 +153,10 @@ mod tests {
                 method,
                 target: Url::from(path),
                 host: None,
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
         }
     }
 

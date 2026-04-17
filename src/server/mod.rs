@@ -199,6 +199,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     let mut ctx = Context {
         request,
         response: Response::new(200, "OK"),
+        auth: None,
     };
 
     if let Err(e) = router.dispatch(&mut ctx) {
