@@ -14,7 +14,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[allow(unused_imports)]
 pub use auth::AuthMiddleware;
 #[allow(unused_imports)]
 pub use context::AuthClaims;
@@ -95,7 +94,6 @@ impl Server {
 
     /// Set the middleware chain for this server (builder pattern).
     /// If not called, an empty chain is used (no middleware runs).
-    #[allow(dead_code)]
     pub fn with_middleware(mut self, chain: middleware::MiddlewareChain) -> Self {
         self.middleware = Arc::new(chain);
         self
@@ -452,6 +450,117 @@ mod tests {
         assert!(
             response.contains("X-Powered-By: kiss-serve/"),
             "expected X-Powered-By header, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_short_circuit_returns_401_with_standard_headers() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request to /api/data WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /api/data HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let router = Arc::new(Router::new());
+        let chain = middleware::MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, router, mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 401"),
+            "expected 401 for unauthenticated request, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Date:"),
+            "short-circuit response must have Date header, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Connection: close"),
+            "short-circuit response must have Connection: close, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_exempt_route_bypasses_auth() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request to /health WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/health", crate::handlers::RootHandler)
+            .unwrap();
+        let chain = middleware::MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "exempt /health should return 200 without auth header, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_authenticated_request_reaches_handler() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request WITH X-Authenticated-User header to a route that exists
+            client
+                .write_all(
+                    b"GET / HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
+                )
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        let chain = middleware::MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "authenticated request should reach handler, got: {:?}",
             response
         );
     }

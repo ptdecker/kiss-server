@@ -5,7 +5,7 @@
 use log::info;
 
 use logger::SimpleLogger;
-use server::{Router, Server};
+use server::{AuthMiddleware, MiddlewareChain, Router, Server};
 
 mod config;
 mod handlers;
@@ -162,7 +162,14 @@ fn main() -> Result<()> {
         .into());
     }
 
-    Server::new(&addr)?.with_router(router).run()?;
+    let middleware_chain = MiddlewareChain::new()
+        .add(AuthMiddleware::new())
+        .public_routes(&["/health", "/favicon.ico"]);
+
+    Server::new(&addr)?
+        .with_router(router)
+        .with_middleware(middleware_chain)
+        .run()?;
     Ok(())
 }
 
