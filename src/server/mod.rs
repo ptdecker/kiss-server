@@ -153,7 +153,9 @@ fn inject_standard_headers(ctx: &mut Context) {
             concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
         );
     }
-    ctx.response.add_header("Connection", "close");
+    if !ctx.response.has_header("Connection") {
+        ctx.response.add_header("Connection", "close");
+    }
 }
 
 fn handle_connection(

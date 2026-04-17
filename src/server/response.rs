@@ -54,6 +54,17 @@ impl Response {
         self.headers.push((name.to_string(), value.to_string()));
     }
 
+    /// Returns true if a header with the given name is already present (case-insensitive).
+    ///
+    /// Used by `inject_standard_headers` to avoid emitting duplicate headers when
+    /// a handler has already set a header that the injector would also add.
+    pub fn has_header(&self, name: &str) -> bool {
+        let name_lower = name.to_ascii_lowercase();
+        self.headers
+            .iter()
+            .any(|(k, _)| k.to_ascii_lowercase() == name_lower)
+    }
+
     /// Serialize and write the response to the given writer.
     ///
     /// Format: "HTTP/1.1 {status} {reason}\r\n{headers}\r\n{body}"
