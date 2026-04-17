@@ -14,9 +14,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[allow(unused_imports)]
+pub use auth::AuthMiddleware;
+#[allow(unused_imports)]
+pub use context::AuthClaims;
 pub use context::Context;
 pub use error::{Error, Result};
 pub use handler::Handler;
+#[allow(unused_imports)]
+pub use middleware::{Middleware, MiddlewareChain, MiddlewareResult};
 use pool::ThreadPool;
 pub use request::Request;
 #[allow(unused_imports)]
@@ -26,9 +32,11 @@ pub use router::Router;
 
 use crate::time::DateTime;
 
+mod auth;
 mod context;
 mod error;
 mod handler;
+mod middleware;
 mod plugin;
 #[allow(unused_imports)]
 pub use plugin::KissPlugin;
