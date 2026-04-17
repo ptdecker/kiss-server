@@ -147,10 +147,7 @@ fn inject_standard_headers(ctx: &mut Context) {
     if let Ok(dt) = DateTime::now() {
         ctx.response.add_header("Date", &dt.to_imf_fixdate());
     }
-    // This rather dumb lint suppression is needed to make either Clippy or RustRover happy with us
-    // temporarily using a constant here instead of a configuration option
-    #[allow(clippy::bool_comparison)]
-    if ENABLE_POWERED_BY == true {
+    if ENABLE_POWERED_BY {
         ctx.response.add_header(
             "X-Powered-By",
             concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
