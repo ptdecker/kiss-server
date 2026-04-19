@@ -176,9 +176,17 @@ fn main() -> Result<()> {
         }
     }
 
-    let middleware_chain = MiddlewareChain::new()
-        .add(AuthMiddleware::new())
-        .public_routes(&["/health", "/favicon.ico"]);
+    let skip_auth = std::env::var("KISS_SKIP_AUTH").is_ok();
+    if skip_auth {
+        info!("KISS_SKIP_AUTH set — auth middleware disabled (dev mode only)");
+    }
+    let middleware_chain = if skip_auth {
+        MiddlewareChain::new().public_routes(&[])
+    } else {
+        MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health", "/favicon.ico"])
+    };
 
     Server::new(&addr)?
         .with_router(router)
