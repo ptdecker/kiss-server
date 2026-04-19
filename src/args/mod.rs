@@ -1,20 +1,17 @@
 //! CLI argument parsing for kiss-server.
 //!
-//! Parses a raw argv slice (excluding the binary name) into a map in a single
-//! pass and exposes typed helpers for retrieving flags.
+//! Parses a raw argv slice (excluding the binary name) into a map in a single pass and exposes
+//! typed helpers for retrieving flags.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-/// Parses a raw argv slice (excluding binary name) into a map of
-/// flag -> optional value. Single pass, O(n). A flag is any token that
-/// begins with `--`. The following token becomes its value unless that
-/// token is itself another flag (begins with `--`), in which case the
-/// first flag is recorded with `None` and the iterator continues at the
-/// next flag. Non-flag tokens at positions where no flag is active are
-/// silently ignored (positional args are not used by kiss-server).
+/// Parses a raw argv slice (excluding binary name) into a map of flag -> optional value. Single
+/// pass, O(n). A flag is any token that begins with `--`. The following token becomes its value
+/// unless that token is itself another flag (begins with `--`), in which case the first flag is
+/// recorded with `None` and the iterator continues at the next flag. Non-flag tokens at positions
+/// where no flag is active are silently ignored (positional args are not used by kiss-server).
 pub fn parse(argv: &[String]) -> HashMap<String, Option<String>> {
     let mut map = HashMap::new();
     let mut i = 0;
@@ -36,8 +33,8 @@ pub fn parse(argv: &[String]) -> HashMap<String, Option<String>> {
     map
 }
 
-/// Returns `true` if `flag` is present in `map`, regardless of whether it
-/// carries a value. Replaces `args.iter().any(|a| a == flag)`.
+/// Returns `true` if `flag` is present in `map`, regardless of whether it carries a value. Replaces
+/// `args.iter().any(|a| a == flag)`.
 pub fn has_flag(map: &HashMap<String, Option<String>>, flag: &str) -> bool {
     map.contains_key(flag)
 }
@@ -50,9 +47,8 @@ pub enum PathKind {
     File,
 }
 
-/// Looks up `flag` in `map`; returns the validated [`PathBuf`] when the
-/// flag is present with a value and the path exists as the requested
-/// [`PathKind`].
+/// Looks up `flag` in `map`; returns the validated [`PathBuf`] when the flag is present with a
+/// value and the path exists as the requested [`PathKind`].
 ///
 /// Error messages mirror the current main.rs wording:
 /// - absent: `"{flag} <path> is required"`
@@ -95,22 +91,22 @@ pub fn get_path(
     }
 }
 
-/// Looks up `--port` in `map`; returns its parsed `u16` value, or
-/// `default` if absent.
+/// Looks up `flag` in `map`; parses its value into `T`, or returns `default` if absent.
 ///
-/// Error messages mirror current wording:
-/// - missing value: `"--port requires a port number"`
-/// - non-numeric: `"--port '{v}': not a valid port number"`
-pub fn get_port(map: &HashMap<String, Option<String>>, default: u16) -> Result<u16> {
-    match map.get("--port") {
+/// Error messages:
+/// - missing value: `"{flag} requires a value"`
+/// - parse failure: `"{flag} '{v}': not a valid {type}"`
+pub fn get_parsed<T>(map: &HashMap<String, Option<String>>, flag: &str, default: T) -> Result<T>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    match map.get(flag) {
         None => Ok(default),
-        Some(None) => Err("--port requires a port number".into()),
-        Some(Some(port_str)) => {
-            let port: u16 = port_str
-                .parse()
-                .map_err(|_| format!("--port '{}': not a valid port number", port_str))?;
-            Ok(port)
-        }
+        Some(None) => Err(format!("{} requires a value", flag).into()),
+        Some(Some(s)) => s
+            .parse::<T>()
+            .map_err(|e| format!("{} '{}': {}", flag, s, e).into()),
     }
 }
 
@@ -331,49 +327,38 @@ mod tests {
         );
     }
 
-    // ========== get_port() unit tests ==========
+    // ========== get_parsed() unit tests ==========
 
     #[test]
-    fn get_port_valid_returns_ok() {
+    fn get_parsed_valid_u16_returns_ok() {
         let args = vec!["--port".to_string(), "8080".to_string()];
         let map = parse(&args);
-        let result = get_port(&map, 6502);
-        assert!(
-            result.is_ok(),
-            "expected Ok(8080) for valid port, got: {:?}",
-            result
-        );
+        let result = get_parsed::<u16>(&map, "--port", 6502);
         assert_eq!(result.unwrap(), 8080u16);
     }
 
     #[test]
-    fn get_port_absent_returns_default() {
+    fn get_parsed_absent_returns_default() {
         let args: Vec<String> = vec![];
         let map = parse(&args);
-        let result = get_port(&map, 6502);
-        assert!(
-            result.is_ok(),
-            "expected Ok(6502) when --port is absent, got: {:?}",
-            result
-        );
+        let result = get_parsed::<u16>(&map, "--port", 6502);
         assert_eq!(result.unwrap(), 6502u16);
     }
 
     #[test]
-    fn get_port_invalid_returns_err() {
+    fn get_parsed_invalid_returns_err_with_flag_name() {
         let args = vec!["--port".to_string(), "abc".to_string()];
         let map = parse(&args);
-        let result = get_port(&map, 6502);
-        assert!(
-            result.is_err(),
-            "expected Err for invalid port value, got: {:?}",
-            result
-        );
-        let msg = result.unwrap_err().to_string();
-        assert!(
-            msg.contains("--port"),
-            "error message should mention --port, got: {:?}",
-            msg
-        );
+        let result = get_parsed::<u16>(&map, "--port", 6502);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("--port"));
+    }
+
+    #[test]
+    fn get_parsed_missing_value_returns_err() {
+        let args = vec!["--port".to_string()];
+        let map = parse(&args);
+        let result = get_parsed::<u16>(&map, "--port", 6502);
+        assert!(result.is_err());
     }
 }

@@ -93,7 +93,7 @@ fn main() -> Result<()> {
     SimpleLogger::init()?;
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
     let parsed = args::parse(&raw_args);
-    let port = args::get_port(&parsed, DEFAULT_PORT)?;
+    let port = args::get_parsed::<u16>(&parsed, "--port", DEFAULT_PORT)?;
     let addr = format!("0.0.0.0:{}", port);
     let (dispatcher, plugin_configs) = build_dispatcher(&parsed)?;
     let mut router = Router::new().set_fallback(dispatcher);
