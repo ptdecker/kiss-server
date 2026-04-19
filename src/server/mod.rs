@@ -73,7 +73,7 @@ pub struct Server {
     /// The router, which dispatches requests to handlers.
     router: Arc<Router>,
     /// The middleware chain, which runs before dispatch.
-    middleware: Arc<middleware::MiddlewareChain>,
+    middleware: Arc<MiddlewareChain>,
 }
 
 impl Server {
@@ -84,20 +84,20 @@ impl Server {
             listener: TcpListener::bind(&addr)?,
             pool: ThreadPool::build(DEFAULT_POOL_SIZE)?,
             router: Arc::new(Router::new()),
-            middleware: Arc::new(middleware::MiddlewareChain::new()),
+            middleware: Arc::new(MiddlewareChain::new()),
         })
     }
 
-    /// Set the router for this server (builder pattern).
-    /// If not called, all requests receive 404 Not Found.
+    /// Set the router for this server (builder pattern). If not called, all requests receive 404
+    /// Not Found.
     pub fn with_router(mut self, router: Router) -> Self {
         self.router = Arc::new(router);
         self
     }
 
-    /// Set the middleware chain for this server (builder pattern).
-    /// If not called, an empty chain is used (no middleware runs).
-    pub fn with_middleware(mut self, chain: middleware::MiddlewareChain) -> Self {
+    /// Set the middleware chain for this server (builder pattern). If not called, an empty chain is
+    /// used (no middleware runs).
+    pub fn with_middleware(mut self, chain: MiddlewareChain) -> Self {
         self.middleware = Arc::new(chain);
         self
     }
@@ -122,8 +122,8 @@ impl Server {
 
 /// Send a minimal error response to the client and discard any writing failure.
 ///
-/// This is called on error paths where the BufReader has already been dropped,
-/// and the stream is available for writing again.
+/// This is called on error paths where the BufReader has already been dropped, and the stream is
+/// available for writing again.
 fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str, message: &str) {
     let body = message.as_bytes().to_vec();
     let content_length = body.len().to_string();
@@ -164,7 +164,7 @@ fn inject_standard_headers(ctx: &mut Context) {
 fn handle_connection(
     mut stream: TcpStream,
     router: Arc<Router>,
-    middleware: Arc<middleware::MiddlewareChain>,
+    middleware: Arc<MiddlewareChain>,
 ) -> Result<()> {
     let start = Instant::now();
     debug!("handling a connection");
@@ -248,7 +248,7 @@ fn handle_connection(
         auth: None,
     };
 
-    // Run middleware chain before dispatch (MIDL-01).
+    // Run a middleware chain before dispatch (MIDL-01).
     // ShortCircuit means middleware wrote ctx.response — skip dispatch entirely (MIDL-02).
     if let MwResult::ShortCircuit = middleware.run(&mut ctx) {
         inject_standard_headers(&mut ctx);
@@ -340,7 +340,7 @@ mod tests {
             let _ = client.read_to_end(&mut buf);
         });
         let (stream, _) = listener.accept()?;
-        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        let middleware = Arc::new(MiddlewareChain::new());
         let result = handle_connection(stream, router, middleware);
         client_thread.join().unwrap();
         result
@@ -389,7 +389,7 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        let middleware = Arc::new(MiddlewareChain::new());
         handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(response.contains("HTTP/1.1 200 OK"), "missing status line");
@@ -418,7 +418,7 @@ mod tests {
         });
         let (stream, _) = listener.accept().unwrap();
         // Empty router — no routes registered
-        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        let middleware = Arc::new(MiddlewareChain::new());
         handle_connection(stream, Arc::new(Router::new()), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
@@ -446,7 +446,7 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        let middleware = Arc::new(middleware::MiddlewareChain::new());
+        let middleware = Arc::new(MiddlewareChain::new());
         handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
@@ -474,7 +474,7 @@ mod tests {
         });
         let (stream, _) = listener.accept().unwrap();
         let router = Arc::new(Router::new());
-        let chain = middleware::MiddlewareChain::new()
+        let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
@@ -518,7 +518,7 @@ mod tests {
         router
             .add("GET", "/health", crate::handlers::RootHandler)
             .unwrap();
-        let chain = middleware::MiddlewareChain::new()
+        let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
@@ -554,7 +554,7 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        let chain = middleware::MiddlewareChain::new()
+        let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
@@ -597,7 +597,7 @@ mod tests {
         let mut router = Router::new();
         router.add_prefix(prefix, p);
 
-        let chain = middleware::MiddlewareChain::new()
+        let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
             .public_routes(&["/health", "/favicon.ico"]);
         let mw = Arc::new(chain);
@@ -642,7 +642,7 @@ mod tests {
         let mut router = Router::new();
         router.add_prefix(prefix, p);
 
-        let chain = middleware::MiddlewareChain::new()
+        let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
             .public_routes(&["/health", "/favicon.ico"]);
         let mw = Arc::new(chain);
@@ -692,7 +692,7 @@ mod tests {
         router.add_prefix(prefix, p);
 
         // No auth middleware -- just verify routing
-        let mw = Arc::new(middleware::MiddlewareChain::new());
+        let mw = Arc::new(MiddlewareChain::new());
         handle_connection(stream, Arc::new(router), mw).unwrap();
         let response = client_thread.join().unwrap();
         assert!(

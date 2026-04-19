@@ -105,7 +105,7 @@ The production systemd unit (written by `scripts/install-kiss-server.sh`) starts
 ExecStart=/usr/local/bin/kiss-server --config /etc/kiss-server/kiss-server.toml --port 8080
 ```
 
-The install script also writes `/etc/kiss-server/kiss-server.toml`:
+The installation script also writes `/etc/kiss-server/kiss-server.toml`:
 
 ```toml
 [server]
@@ -119,7 +119,7 @@ This means the `kiss-url-shortener` plugin is active in production after running
 `scripts/install-kiss-server.sh`. The three hardcoded seed short codes (`/s/gh`, `/s/rs`, `/s/hn`)
 are available immediately on startup.
 
-The CD pipeline deploys only the binary — the config file on EC2 is written once by the install
+The CD pipeline deploys only the binary — the config file on EC2 is written once by the installation
 script and persists across deployments. To change the plugin configuration, update
 `/etc/kiss-server/kiss-server.toml` on the EC2 instance directly, then restart the service, or
 re-run `scripts/install-kiss-server.sh` to reset it to the canonical config.

@@ -9,8 +9,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
 
-    /// Compile-time proof that Arc<RwLock<HashMap>> satisfies Send + Sync
-    /// via the Handler + KissPlugin supertrait bounds (PLUG-05).
+    /// Compile-time proof that Arc<RwLock<HashMap>> satisfies Send and Sync
+    /// via the Handler and KissPlugin super trait bounds (PLUG-05).
     struct StatefulPlugin {
         store: Arc<RwLock<HashMap<String, String>>>,
     }

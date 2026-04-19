@@ -150,7 +150,7 @@ impl Config {
                 });
                 section = Section::Vhost;
             } else if line == "[[plugin]]" {
-                // Commit any in-progress entries before switching section
+                // Commit any in-progress entries before switching a section
                 if let Some(entry) = current_vhost.take() {
                     vhosts.push(commit_vhost(entry, lineno)?);
                 }
@@ -235,7 +235,7 @@ impl Config {
             vhosts.push(commit_vhost(entry, last_lineno)?);
         }
 
-        // Commit final in-progress plugin
+        // Commit the final in-progress plugin
         if let Some(entry) = current_plugin.take() {
             let last_lineno = input.lines().count().saturating_sub(1);
             plugins.push(commit_plugin(entry, last_lineno)?);

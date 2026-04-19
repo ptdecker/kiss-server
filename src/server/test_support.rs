@@ -1,19 +1,21 @@
 //! Test helpers for plugin and handler unit tests.
 //!
-//! This module is `#[cfg(test)]`-gated at the `mod` declaration in `mod.rs`.
-//! It does NOT appear in release builds.
+//! This module is `#[cfg(test)]`-gated at the `mod` declaration in `mod.rs`. It does NOT appear in
+//! release builds.
 
-use crate::server::{
-    context::Context,
-    request::{Request, RequestMethod},
-    response::Response,
+use crate::{
+    server::{
+        context::Context,
+        request::{Request, RequestMethod},
+        response::Response,
+    },
+    url::Url,
 };
-use crate::url::Url;
 
 /// Construct a `Context` for unit testing a handler or plugin.
 ///
 /// # Panics
-/// Panics if `method` is not a valid HTTP method string (e.g., "GET", "POST").
+/// This panics if `method` is not a valid HTTP method string (e.g., "GET", "POST").
 ///
 /// # Example
 /// ```ignore
@@ -37,7 +39,7 @@ pub fn test_context(method: &str, path: &str) -> Context {
 /// Construct a `Context` with custom request headers for middleware tests.
 ///
 /// Header names and values are provided as `(&str, &str)` tuples.
-/// Headers are stored exactly as provided (case preserved).
+/// Headers are stored exactly as provided (the case is preserved).
 pub fn test_context_with_headers(method: &str, path: &str, headers: &[(&str, &str)]) -> Context {
     Context {
         request: Request {

@@ -11,7 +11,7 @@ pub enum MiddlewareResult {
     ShortCircuit,
 }
 
-/// A synchronous pre-dispatch middleware.
+/// Synchronous pre-dispatch middleware.
 ///
 /// Middleware runs before `router.dispatch()`. It may inspect or mutate `ctx`,
 /// and may short-circuit the request by writing `ctx.response` and returning
@@ -76,7 +76,7 @@ impl MiddlewareChain {
     /// Returns `ShortCircuit` if any middleware short-circuited — `ctx.response`
     /// is already populated by the middleware that stopped the chain.
     pub fn run(&self, ctx: &mut Context) -> MiddlewareResult {
-        // Decode path for exemption check — same API as router::dispatch()
+        // Decode a path for exemption check — same API as router::dispatch()
         let decoded = match ctx.request.target.decoded_path() {
             Ok(d) => d,
             Err(_) => return MiddlewareResult::Continue, // let router handle malformed paths

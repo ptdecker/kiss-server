@@ -1,6 +1,6 @@
-//! A from-scratch HTTP/1.1 static file server written in pure Rust.
-//! Runs behind CloudFront for TLS termination at ptodd.org / www.ptodd.org.
-//! Supports multi-domain virtual hosting via `--config` or single-root via `--root`.
+//! A from-scratch HTTP/1.1 static file server written in pure Rust. Runs behind CloudFront for TLS
+//! termination at ptodd.org / www.ptodd.org. Supports multi-domain virtual hosting via `--config`
+//! or single-root via `--root`.
 
 use kiss_plugin_sdk::KissPlugin;
 use kiss_url_shortener::UrlShortener;
@@ -55,22 +55,23 @@ fn build_dispatcher(
 
         let mut vhosts = std::collections::HashMap::new();
         for entry in &config.vhosts {
-            let root = std::path::PathBuf::from(&entry.root);
-            let handler = handlers::StaticFileHandler::new(root)
-                .map_err(|e| format!("vhost '{}': {}", entry.domain, e))?;
-            vhosts.insert(entry.domain.clone(), handler);
+            vhosts.insert(
+                entry.domain.clone(),
+                handlers::StaticFileHandler::new(std::path::PathBuf::from(&entry.root))
+                    .map_err(|e| format!("vhost '{}': {}", entry.domain, e))?,
+            );
         }
 
-        let default_handler = match &config.server.default_root {
-            Some(root) => {
+        let default_handler = config
+            .server
+            .default_root
+            .as_ref()
+            .map(|root| {
                 let path = std::path::PathBuf::from(root);
-                Some(
-                    handlers::StaticFileHandler::new(path)
-                        .map_err(|e| format!("default_root '{}': {}", root, e))?,
-                )
-            }
-            None => None,
-        };
+                handlers::StaticFileHandler::new(path)
+                    .map_err(|e| format!("default_root '{}': {}", root, e))
+            })
+            .transpose()?;
 
         Ok((
             handlers::VhostDispatcher::new(vhosts, default_handler),
@@ -79,9 +80,11 @@ fn build_dispatcher(
     } else if has_root {
         let root = args::get_path(parsed, "--root", args::PathKind::Dir)?;
         info!("Serving static files from root: {}", root.display());
-        let handler = handlers::StaticFileHandler::new(root)?;
         Ok((
-            handlers::VhostDispatcher::new(std::collections::HashMap::new(), Some(handler)),
+            handlers::VhostDispatcher::new(
+                std::collections::HashMap::new(),
+                Some(handlers::StaticFileHandler::new(root)?),
+            ),
             Vec::new(),
         ))
     } else {
@@ -92,10 +95,10 @@ fn build_dispatcher(
 fn main() -> Result<()> {
     SimpleLogger::init()?;
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
-    let parsed = args::parse(&raw_args);
-    let port = args::get_parsed::<u16>(&parsed, "--port", DEFAULT_PORT)?;
+    let parsed_args = args::parse(&raw_args);
+    let port = args::get_parsed::<u16>(&parsed_args, "--port", DEFAULT_PORT)?;
     let addr = format!("0.0.0.0:{}", port);
-    let (dispatcher, plugin_configs) = build_dispatcher(&parsed)?;
+    let (dispatcher, plugin_configs) = build_dispatcher(&parsed_args)?;
     let mut router = Router::new().set_fallback(dispatcher);
 
     if !plugin_configs.is_empty() {
@@ -103,12 +106,12 @@ fn main() -> Result<()> {
     }
 
     // Plugin activation: map each configured plugin name to its constructor (PLUG-03, D-03, D-08).
-    for cfg in &plugin_configs {
-        match cfg.name.as_str() {
+    for plugin_config in &plugin_configs {
+        match plugin_config.name.as_str() {
             "url-shortener" => {
                 let sdk_cfg = kiss_plugin_sdk::PluginConfig {
-                    name: cfg.name.clone(),
-                    extra: cfg.extra.clone(),
+                    name: plugin_config.name.clone(),
+                    extra: plugin_config.extra.clone(),
                 };
                 let p = UrlShortener::new(&sdk_cfg);
                 let prefix = p.path_prefix().to_string();
@@ -127,11 +130,8 @@ fn main() -> Result<()> {
         }
     }
 
-    let skip_auth = std::env::var("KISS_SKIP_AUTH").is_ok();
-    if skip_auth {
+    let middleware_chain = if std::env::var("KISS_SKIP_AUTH").is_ok() {
         info!("KISS_SKIP_AUTH set — auth middleware disabled (dev mode only)");
-    }
-    let middleware_chain = if skip_auth {
         MiddlewareChain::new().public_routes(&[])
     } else {
         MiddlewareChain::new()

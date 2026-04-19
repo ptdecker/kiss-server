@@ -7,8 +7,8 @@ use super::{
 
 /// Routes incoming requests to the first registered handler whose method and path match.
 ///
-/// Unmatched requests are handled by the registered fallback handler when set, or by the
-/// built-in `NotFoundHandler` (404) when no fallback is registered.
+/// Unmatched requests are handled by the registered fallback handler when set, or by the built-in
+/// `NotFoundHandler` (404) when no fallback is registered.
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
     prefix_routes: Vec<(String, Box<dyn Handler>)>,
@@ -37,9 +37,9 @@ impl Router {
 
     /// Set a fallback handler for unmatched requests (value-chaining builder).
     ///
-    /// When set, the fallback handler is called for any request that does not match a
-    /// registered route. If no fallback is set, unmatched requests receive a built-in 404.
-    /// The safety guard (dotdot rejection, invalid %-sequences) still runs before the fallback.
+    /// When set, the fallback handler is called for any request that does not match a registered
+    /// route. If no fallback is set, unmatched requests receive a built-in 404. The safety guard
+    /// (dotdot rejection, invalid %-sequences) still runs before the fallback.
     pub fn set_fallback(mut self, handler: impl Handler + 'static) -> Self {
         self.fallback = Some(Box::new(handler));
         self
@@ -47,25 +47,26 @@ impl Router {
 
     /// Register a handler for the given HTTP method and exact path.
     ///
-    /// Routes are checked in registration order; the first match wins.
-    /// Returns `Err` if `method` is not a valid HTTP method string.
+    /// Routes are checked in registration order; the first match wins. Returns `Err` if `method` is
+    /// not a valid HTTP method string.
     ///
     /// Not called from production `main()` (all requests go to the StaticFileHandler fallback).
     /// Retained for tests and future use.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn add(&mut self, method: &str, path: &str, handler: impl Handler + 'static) -> Result<()> {
-        let method =
-            RequestMethod::try_from(method).map_err(|e| Error::InvalidRequest(e.to_string()))?;
-        self.routes
-            .push((method, path.to_string(), Box::new(handler)));
+        self.routes.push((
+            RequestMethod::try_from(method).map_err(|e| Error::InvalidRequest(e.to_string()))?,
+            path.to_string(),
+            Box::new(handler),
+        ));
         Ok(())
     }
 
     /// Register a handler for all requests whose decoded path starts with `prefix`.
     ///
-    /// Prefix routes are checked after exact-match routes but before the fallback.
-    /// Routes are tried in registration order; the first match wins (PLUG-04).
-    /// Register more-specific prefixes before less-specific ones.
+    /// Prefix routes are checked after exact-match routes but before the fallback. Routes are
+    /// tried in registration order; the first match wins (PLUG-04). Register more-specific prefixes
+    /// before less-specific ones.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn add_prefix(&mut self, prefix: impl Into<String>, handler: impl Handler + 'static) {
         let prefix = prefix.into();
@@ -78,30 +79,25 @@ impl Router {
 
     /// Dispatch the request in `ctx` to the first matching handler.
     ///
-    /// The path is percent-decoded before routing. Invalid %-sequences and paths
-    /// containing `..` components are rejected with 404 before any handler runs.
+    /// The path is percent-decoded before routing. Invalid %-sequences and paths containing `..`
+    /// components are rejected with 404 before any handler runs.
     ///
-    /// If no route matches, calls the registered fallback handler when set, or the
-    /// built-in NotFoundHandler (404) when no fallback is registered.
-    /// Returns `Ok(())` for all cases including rejection — never returns `Err` for
-    /// path rejection (callers map `Err` to 500).
+    /// If no route matches, calls the registered fallback handler when set, or the built-in
+    /// NotFoundHandler (404) when no fallback is registered. Returns `Ok(())` for all cases
+    /// including rejection — never returns `Err` for path rejection (callers map `Err` to 500).
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
-        let decoded = match ctx.request.target.decoded_path() {
-            Ok(d) => d,
-            Err(_) => {
-                return NotFoundHandler
-                    .handle(ctx)
-                    .map_err(|e| Error::InvalidRequest(e.to_string()));
-            }
+        let Ok(decoded) = ctx.request.target.decoded_path() else {
+            return NotFoundHandler
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string()));
         };
         if decoded.split('/').any(|c| c == "..") {
             return NotFoundHandler
                 .handle(ctx)
                 .map_err(|e| Error::InvalidRequest(e.to_string()));
         }
-        let method = &ctx.request.method;
         for (route_method, route_path, handler) in &self.routes {
-            if route_method == method && route_path.as_str() == decoded.as_str() {
+            if route_method == &ctx.request.method && route_path.as_str() == decoded.as_str() {
                 return handler
                     .handle(ctx)
                     .map_err(|e| Error::InvalidRequest(e.to_string()));

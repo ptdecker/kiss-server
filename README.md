@@ -49,7 +49,7 @@ security group restricts port 80 to the CloudFront managed prefix list; port 22 
 SSH administration).
 
 In development there is no Lambda@Edge, so every request gets a 401 unless you work around the
-middleware. Two options:
+middleware. Two options exist for doing so:
 
 **Option 1 — Disable auth entirely (simplest)**
 
@@ -96,12 +96,12 @@ The three hardcoded seed codes are available immediately after startup:
 | `http://localhost:8080/s/rs` | https://www.rust-lang.org    |
 | `http://localhost:8080/s/hn` | https://news.ycombinator.com |
 
-Plugin state is in-memory and resets on every restart.
+Plugin state is currently in-memory and resets on every restart.
 
 ## Deployment
 
-kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro behind
-CloudFront (ACM TLS, cache invalidation on deployment).
+The kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro
+instance behind CloudFront (ACM TLS, cache invalidation on deployment).
 
 To deploy, update CHANGELOG.md with the release notes, then run:
 
@@ -113,12 +113,12 @@ This triggers the CD pipeline which builds a release binary, deploys it to EC2, 
 is running, and creates a GitHub Release. See [docs/ci-cd.md](docs/ci-cd.md) for full pipeline
 documentation.
 
-## Architecture
+## Architecture Overview
 
 The kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for
 concurrent connections. The request lifecycle is:
 
-1. **Middleware chain** — runs before dispatch; each middleware may inspect/mutate the request
+1. **Middleware chain** — runs before dispatch; each middleware may inspect and mutate the request
    context or short-circuit with a response (e.g., 401 Unauthorized). Named routes can be exempted
    from the chain (public routes). The built-in auth middleware validates the `X-Authenticated-User`
    header injected by Lambda@Edge in production.
@@ -133,7 +133,7 @@ built against the `kiss-plugin-sdk` crate (shared types: `Handler`, `KissPlugin`
 `Request`, `Response`) and wired into the router under their declared path prefix. The bundled
 `kiss-url-shortener` plugin (`/s/<code>`) is the reference implementation.
 
-The entire server is built on Rust's standard library — no async runtime, no frameworks.
+The entire server is built on Rust's standard library with no async runtime nor frameworks.
 
 See [docs/design.md](docs/design.md) for the full architecture walkthrough.
 
