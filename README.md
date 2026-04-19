@@ -35,6 +35,63 @@ just build-docs    # Generate rustdoc
 just docs          # Generate and open rustdoc in browser
 ```
 
+### Auth middleware and local testing
+
+In production, kiss-server runs behind CloudFront + Lambda@Edge. Lambda@Edge validates JWTs and
+injects an `X-Authenticated-User` header before the request reaches the origin. The server trusts
+this header because only CloudFront can reach the EC2 instance (security group restricts port 80 to
+CloudFront IP ranges).
+
+In development there is no Lambda@Edge, so every request gets a 401 unless you work around the
+middleware. Two options:
+
+**Option 1 — Disable auth entirely (simplest)**
+
+```bash
+KISS_SKIP_AUTH=1 just run
+```
+
+The server logs a visible warning at startup: `KISS_SKIP_AUTH set — auth middleware disabled (dev
+mode only)`. Never set this in the production systemd unit.
+
+**Option 2 — Pass the header manually (curl / scripts)**
+
+```bash
+curl -H "X-Authenticated-User: dev" http://localhost:6502/
+```
+
+Useful when you want to test auth-on behaviour (e.g. verifying a 401 is returned without the
+header) alongside normal requests.
+
+### Testing plugins locally
+
+Plugins are only activated when using `--config`. To test the URL shortener locally, add a
+`[server]` section to `kiss-server.toml` pointing at a static file directory, then run with
+`--config`:
+
+```toml
+# kiss-server.toml (local testing only — do not commit default_root)
+[server]
+default_root = "docs"
+
+[[plugin]]
+name = "url-shortener"
+```
+
+```bash
+KISS_SKIP_AUTH=1 ./target/debug/kiss-server --config kiss-server.toml --port 8080
+```
+
+The three hardcoded seed codes are available immediately after startup:
+
+| URL | Redirects to |
+|-----|-------------|
+| `http://localhost:8080/s/gh` | https://github.com/ptdecker |
+| `http://localhost:8080/s/rs` | https://www.rust-lang.org |
+| `http://localhost:8080/s/hn` | https://news.ycombinator.com |
+
+Plugin state is in-memory and resets on every restart.
+
 ## Deployment
 
 kiss-server is live at [https://www.ptodd.org/](https://www.ptodd.org/) on an EC2 t3.micro behind
