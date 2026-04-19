@@ -1,33 +1,11 @@
-//! Plugin metadata trait for prefix-routed request handlers.
-
-use super::handler::Handler;
-
-/// Metadata extension for prefix-routed plugins.
-///
-/// Plugins implement this trait instead of Handler directly. Because KissPlugin
-/// extends Handler, any KissPlugin is also a Handler and can be stored in the
-/// router's `Box<dyn Handler>` slots.
-///
-/// # Object Safety
-/// Both methods take `&self` and return `&str` — fully object-safe.
-/// `Box<dyn KissPlugin>` is valid.
-///
-/// # Thread Safety
-/// Inherits `Send + Sync` from the `Handler` supertrait. Plugin state
-/// held in `Arc<RwLock<T>>` satisfies both bounds without unsafe.
-#[allow(dead_code)]
-pub trait KissPlugin: Handler {
-    /// Human-readable plugin identifier, used in startup logs and error messages.
-    fn name(&self) -> &str;
-    /// URL prefix this plugin owns. Requests whose decoded path starts_with this
-    /// prefix are routed to this plugin.
-    fn path_prefix(&self) -> &str;
-}
+//! Plugin metadata trait -- re-exported from kiss-plugin-sdk.
+pub use kiss_plugin_sdk::KissPlugin;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::{context::Context, Result};
+    use crate::server::handler::Handler;
+    use kiss_plugin_sdk::{Context, Result};
     use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
 
@@ -40,7 +18,7 @@ mod tests {
     impl Handler for StatefulPlugin {
         fn handle(&self, ctx: &mut Context) -> Result<()> {
             let _guard = self.store.read().unwrap();
-            ctx.response = crate::server::Response::new(200, "OK")
+            ctx.response = kiss_plugin_sdk::Response::new(200, "OK")
                 .header("Content-Length", "2")
                 .body(b"OK".to_vec());
             Ok(())

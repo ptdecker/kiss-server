@@ -1,7 +1,8 @@
 //! Request router: dispatches requests to registered handlers in registration order.
 
 use super::{
-    context::Context, handler::Handler, request::RequestMethod, response::Response, Result,
+    context::Context, error::Error, handler::Handler, request::RequestMethod, response::Response,
+    HandlerResult, Result,
 };
 
 /// Routes incoming requests to the first registered handler whose method and path match.
@@ -53,7 +54,8 @@ impl Router {
     /// Retained for tests and future use.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn add(&mut self, method: &str, path: &str, handler: impl Handler + 'static) -> Result<()> {
-        let method = RequestMethod::try_from(method)?;
+        let method =
+            RequestMethod::try_from(method).map_err(|e| Error::InvalidRequest(e.to_string()))?;
         self.routes
             .push((method, path.to_string(), Box::new(handler)));
         Ok(())
@@ -86,26 +88,40 @@ impl Router {
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
         let decoded = match ctx.request.target.decoded_path() {
             Ok(d) => d,
-            Err(_) => return NotFoundHandler.handle(ctx),
+            Err(_) => {
+                return NotFoundHandler
+                    .handle(ctx)
+                    .map_err(|e| Error::InvalidRequest(e.to_string()))
+            }
         };
         if decoded.split('/').any(|c| c == "..") {
-            return NotFoundHandler.handle(ctx);
+            return NotFoundHandler
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string()));
         }
         let method = &ctx.request.method;
         for (route_method, route_path, handler) in &self.routes {
             if route_method == method && route_path.as_str() == decoded.as_str() {
-                return handler.handle(ctx);
+                return handler
+                    .handle(ctx)
+                    .map_err(|e| Error::InvalidRequest(e.to_string()));
             }
         }
         // Prefix routes: checked after exact matches, before fallback (PLUG-04)
         for (prefix, handler) in &self.prefix_routes {
             if decoded.starts_with(prefix.as_str()) {
-                return handler.handle(ctx);
+                return handler
+                    .handle(ctx)
+                    .map_err(|e| Error::InvalidRequest(e.to_string()));
             }
         }
         match &self.fallback {
-            Some(h) => h.handle(ctx),
-            None => NotFoundHandler.handle(ctx),
+            Some(h) => h
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string())),
+            None => NotFoundHandler
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string())),
         }
     }
 }
@@ -114,7 +130,7 @@ impl Router {
 struct NotFoundHandler;
 
 impl Handler for NotFoundHandler {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         let body = b"Not Found\n".to_vec();
         let content_length = body.len().to_string();
         ctx.response = Response::new(404, "Not Found")
@@ -133,13 +149,14 @@ mod tests {
         context::Context,
         request::{Request, RequestMethod},
         response::Response,
+        HandlerResult,
     };
     use crate::url::Url;
 
     // Minimal handler for tests
     struct OkHandler;
     impl Handler for OkHandler {
-        fn handle(&self, ctx: &mut Context) -> Result<()> {
+        fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
             ctx.response = Response::new(200, "OK")
                 .header("Content-Length", "2")
                 .body(b"OK".to_vec());
@@ -287,7 +304,7 @@ mod tests {
     fn dispatch_first_match_wins() {
         struct StatusHandler(u16, &'static str);
         impl Handler for StatusHandler {
-            fn handle(&self, ctx: &mut Context) -> Result<()> {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
                 ctx.response = Response::new(self.0, self.1).header("Content-Length", "0");
                 Ok(())
             }
@@ -314,7 +331,7 @@ mod tests {
     // Minimal fallback handler that writes 200
     struct OkFallbackHandler;
     impl Handler for OkFallbackHandler {
-        fn handle(&self, ctx: &mut Context) -> Result<()> {
+        fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
             ctx.response = Response::new(200, "OK")
                 .header("Content-Length", "8")
                 .body(b"fallback".to_vec());
@@ -512,7 +529,7 @@ mod tests {
     fn dispatch_exact_route_wins_over_prefix_route() {
         struct ExactHandler;
         impl Handler for ExactHandler {
-            fn handle(&self, ctx: &mut Context) -> Result<()> {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
                 ctx.response = Response::new(201, "Created").header("Content-Length", "0");
                 Ok(())
             }
@@ -536,7 +553,7 @@ mod tests {
     fn dispatch_prefix_first_match_wins() {
         struct SecondHandler;
         impl Handler for SecondHandler {
-            fn handle(&self, ctx: &mut Context) -> Result<()> {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
                 ctx.response = Response::new(201, "Created").header("Content-Length", "0");
                 Ok(())
             }
@@ -560,7 +577,7 @@ mod tests {
     fn dispatch_longer_prefix_wins_when_registered_first() {
         struct LongPrefixHandler;
         impl Handler for LongPrefixHandler {
-            fn handle(&self, ctx: &mut Context) -> Result<()> {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
                 ctx.response = Response::new(201, "Created").header("Content-Length", "0");
                 Ok(())
             }

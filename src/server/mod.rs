@@ -20,10 +20,13 @@ pub use context::AuthClaims;
 pub use context::Context;
 pub use error::{Error, Result};
 pub use handler::Handler;
+/// Handler-compatible Result re-exported from SDK.
+pub use kiss_plugin_sdk::Result as HandlerResult;
 use middleware::MiddlewareResult as MwResult;
 #[allow(unused_imports)]
 pub use middleware::{Middleware, MiddlewareChain, MiddlewareResult};
 use pool::ThreadPool;
+#[allow(unused_imports)]
 pub use request::Request;
 #[allow(unused_imports)]
 pub use request::RequestMethod;
@@ -223,7 +226,7 @@ fn handle_connection(
         return Ok(()); // empty request — close connection silently (no response needed)
     }
 
-    let request = match Request::parse(&http_request) {
+    let request = match request::parse_request(&http_request) {
         Ok(r) => r,
         Err(e) => {
             send_error_response(&mut stream, 400, "Bad Request", &e.to_string());

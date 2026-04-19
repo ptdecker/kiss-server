@@ -1,84 +1,21 @@
-//! A basic URL parser with normalization
-
-use std::fmt;
-
-use super::*;
-
-#[derive(Default, Debug, Clone)]
-pub struct Url {
-    raw_path: String,
-}
-
-impl fmt::Display for Url {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", &self.raw_path)
-    }
-}
-
-impl From<&str> for Url {
-    fn from(value: &str) -> Self {
-        Url {
-            raw_path: String::from(value),
-        }
-    }
-}
-
-impl Url {
-    /// Returns the path component of the URL, stripping any query string.
-    ///
-    /// If the raw path is "/file.html?v=1", returns "/file.html".
-    /// If no '?' is present, returns the full raw path.
-    pub fn path(&self) -> &str {
-        match self.raw_path.find('?') {
-            Some(idx) => &self.raw_path[..idx],
-            None => &self.raw_path,
-        }
-    }
-
-    /// Percent-decodes the path component of the URL.
-    ///
-    /// Strips the query string first, then decodes each `%HH` sequence into its raw byte,
-    /// converts the resulting byte buffer to a UTF-8 string.
-    ///
-    /// Returns `Err` if a `%` sequence is truncated or contains invalid hex digits.
-    pub fn decoded_path(&self) -> Result<String> {
-        let raw = self.path();
-        let mut buf: Vec<u8> = Vec::with_capacity(raw.len());
-        let mut chars = raw.chars();
-        while let Some(c) = chars.next() {
-            if c == '%' {
-                let hi = chars.next().ok_or_else(|| -> Box<dyn std::error::Error> {
-                    "invalid %-sequence: truncated".into()
-                })?;
-                let lo = chars.next().ok_or_else(|| -> Box<dyn std::error::Error> {
-                    "invalid %-sequence: truncated".into()
-                })?;
-                let byte = (hex_char_to_byte(hi)? << 4) | hex_char_to_byte(lo)?;
-                buf.push(byte);
-            } else {
-                let mut tmp = [0u8; 4];
-                buf.extend_from_slice(c.encode_utf8(&mut tmp).as_bytes());
-            }
-        }
-        String::from_utf8(buf).map_err(|e| e.to_string().into())
-    }
-}
-
-// Helper function that converts a character to a byte assuming that it is a hexadecimal character.
-// An error is returned if the character is not '0-9a-fA-F'
-fn hex_char_to_byte(c: char) -> Result<u8> {
-    match c {
-        '0'..='9' => Ok(c as u8 - b'0'),
-        'a'..='f' => Ok(c as u8 - b'a' + 10),
-        'A'..='F' => Ok(c as u8 - b'A' + 10),
-        _ => Err(format!("The character '{}' is not a valid hexadecimal digit.", c).into()),
-    }
-}
+//! URL type -- re-exported from kiss-plugin-sdk.
+#[allow(unused_imports)]
+pub use kiss_plugin_sdk::Url;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::str::from_utf8;
+
+    // Private hex helper needed by pct_decode test helper (moved from module level)
+    fn hex_char_to_byte(c: char) -> crate::Result<u8> {
+        match c {
+            '0'..='9' => Ok(c as u8 - b'0'),
+            'a'..='f' => Ok(c as u8 - b'a' + 10),
+            'A'..='F' => Ok(c as u8 - b'A' + 10),
+            _ => Err(format!("The character '{}' is not a valid hexadecimal digit.", c).into()),
+        }
+    }
 
     // Helper function that encodes a UTF-8 Unicode character as an RTF-3986 Percent-Encoding (Cf.
     // section 2.1). Used only in tests.
@@ -93,7 +30,7 @@ mod tests {
     // Helper function that takes a value stored in any type that can be referenced as a str.
     // If it contains an RTF 3986 Percent-Encoding of a valid UTF-8 Unicode character, that
     // character is returned as a char. Otherwise, an error is returned. Used only in tests.
-    fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> Result<char> {
+    fn pct_decode<S: AsRef<str>>(pct_encoded: S) -> crate::Result<char> {
         let mut chars = pct_encoded.as_ref().chars().peekable();
         let mut bytes = Vec::<u8>::new();
         while let Some(c) = chars.next() {

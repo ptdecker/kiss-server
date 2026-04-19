@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::server::{Context, Handler, Response, Result};
+use crate::server::{Context, Handler, HandlerResult, Response};
 
 use super::StaticFileHandler;
 
@@ -68,7 +68,7 @@ impl VhostDispatcher {
 }
 
 impl Handler for VhostDispatcher {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         let raw_host = ctx.request.host.as_deref().unwrap_or("");
         let host = normalize_host(raw_host);
 
@@ -93,7 +93,7 @@ fn html_escape(s: &str) -> String {
 }
 
 /// Build a 200 parked-domain HTML response.
-fn parked_page(ctx: &mut Context, host: &str) -> Result<()> {
+fn parked_page(ctx: &mut Context, host: &str) -> HandlerResult<()> {
     let safe_host = html_escape(host);
     let html = format!(
         "<!DOCTYPE html>\n<html>\n<head><title>Parked Domain</title></head>\n<body>\n<p>{} is parked here but has no content.</p>\n</body>\n</html>",

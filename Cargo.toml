@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+kiss-plugin-sdk = { path = "../kiss-plugin-sdk" }
 log = { version = "0.4.20", features = ["std"] }
