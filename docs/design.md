@@ -4,6 +4,25 @@ The kiss-server is a from-scratch HTTP/1.1 static file server written in pure Ru
 dependencies beyond the `log` crate facade. This document explains the core design patterns and key
 decisions.
 
+## Request Lifecycle
+
+Every HTTP request passes through three layers in order:
+
+1. **Middleware chain** — runs before dispatch. Each middleware inspects or mutates the `Context`
+   and returns either `Continue` (pass to the next middleware) or `ShortCircuit` (write a response
+   and stop). Routes on the public-route exemption list bypass the chain entirely. The built-in
+   `AuthMiddleware` checks for an `X-Authenticated-User` header and short-circuits with 401 if it
+   is absent or blank. Set `KISS_SKIP_AUTH=1` to disable auth for local development.
+
+2. **Router dispatch** — matches method + path to the first registered handler. Exact routes take
+   priority over prefix routes; first registration wins on ties. The router rejects dot-dot
+   components and invalid %-sequences with 404 before any handler is called (defense in depth).
+   Unmatched requests fall through to the fallback handler.
+
+3. **Handler** — produces the response by writing into `ctx.response`. The `VhostDispatcher`
+   fallback dispatches to the per-domain `StaticFileHandler` (or the default handler) based on the
+   normalized `Host` header.
+
 ## Handler, Context, and Router
 
 The request pipeline is built around three types that work together:
@@ -13,17 +32,57 @@ The request pipeline is built around three types that work together:
   Handlers must be `Send + Sync` because they are shared across worker threads via `Arc<Router>`.
   Returning `Err` causes the server to send a 500 response.
 
-- **Context**: Wraps the incoming `Request` and the outgoing `Response` for a single HTTP request
-  and response cycle. Constructed per-request in `handle_connection`. Handlers read the request
-  from `ctx.request` and write the response into `ctx.response` in place.
+- **Context**: Wraps the incoming `Request`, the outgoing `Response`, and optional `AuthClaims` for
+  a single HTTP request/response cycle. Constructed per-request in `handle_connection`. Handlers
+  read from `ctx.request` and write into `ctx.response` in place. `ctx.auth` carries the
+  authenticated user identity set by `AuthMiddleware`.
 
 - **Router**: Maps URL paths to Handler implementations via a registration list. Routes are checked
-  in registration order; the first match wins. Uses `set_fallback()` for the static file handler —
-  unmatched routes fall through to file serving rather than returning 404 immediately. The safety
-  guard (dot-dot rejection, invalid %-sequences) runs before any handler, including the fallback.
+  in registration order; the first match wins. Uses `set_fallback()` for the vhost dispatcher —
+  unmatched routes fall through to file serving. Prefix routes (registered with `add_prefix()`) are
+  used for plugins; an exact route on the same path takes priority.
 
-In production, no routes are registered on the router. The `StaticFileHandler` is installed as the
-fallback, so every request goes to file serving. Named routes exist for tests and future use.
+## Middleware
+
+`MiddlewareChain` (`src/server/middleware.rs`) holds an ordered list of `Middleware` trait objects
+and a public-route exemption list. It runs before `router.dispatch()`:
+
+- Routes matching the exemption list (exact decoded-path match) skip all middleware.
+- Non-exempt routes pass through each middleware in registration order.
+- The first `ShortCircuit` stops the chain — subsequent middleware does not run.
+- `AuthMiddleware` (`src/server/auth.rs`) validates `X-Authenticated-User` and populates
+  `ctx.auth` on success, or writes a 401 response and returns `ShortCircuit` on failure.
+
+## Plugin System
+
+Plugins extend the server with prefix-routed handlers loaded at startup from a TOML config file.
+
+**Plugin SDK** (`kiss-plugin-sdk` crate): defines the shared types plugins are built against —
+`Handler`, `KissPlugin`, `Context`, `Request`, `Response`, `AuthClaims`, `PluginConfig`. Plugins
+depend only on the SDK crate, not on server internals.
+
+**`KissPlugin` trait**: extends `Handler` with `name() -> &str` and `path_prefix() -> &str`.
+`main.rs` maps each configured plugin name to its constructor and registers it on the router under
+its declared prefix.
+
+**Bundled plugin**: `kiss-url-shortener` (`kiss-url-shortener` crate) — in-memory URL shortener
+at prefix `/s/<code>`. It is the reference implementation.
+
+**`--root` vs `--config` modes** (`src/main.rs:build_dispatcher()`):
+
+- `--config <path>`: loads TOML config; activates vhosts, `default_root`, and `[[plugin]]` blocks.
+- `--root <path>`: backward-compatible simple mode; returns an empty plugin list — plugins are not
+  available. The reason: plugin names cannot be expressed on the command line without a structured
+  config file, and `--root` is intentionally kept simple. The two flags are mutually exclusive.
+- If plugins are ever needed without vhost config, the right fix is a minimal config file with only
+  `[[plugin]]` blocks, not plugin flags on `--root`.
+
+## Virtual Hosting
+
+`VhostDispatcher` (`src/handlers/vhost.rs`) implements `Handler` and is installed as the router
+fallback. On each request it normalizes the `Host` header (lowercase, strips port, strips `www.`
+prefix) and looks up the matching `StaticFileHandler` in a domain map. If no match is found it
+falls back to the configured `default_handler`, or returns a parked-domain page if neither exists.
 
 ## Thread Pool
 
@@ -74,7 +133,14 @@ fallback, so every request goes to file serving. Named routes exist for tests an
 |-------------------------------------------------------------|----------------------------------------------------------------------------------|---------|
 | Keep `log` crate                                            | Already in use; minimal facade with zero runtime cost                            | Good    |
 | Router-first design                                         | Static files are a route handler, not special-cased logic                        | Good    |
-| Static root via CLI arg (`--root` required)                 | Most flexible; avoids hardcoding conventions; server refuses to start without it | Good    |
+| `--root` / `--config` as mutually exclusive modes           | `--root` stays simple (no config file needed); `--config` unlocks vhosts and plugins | Good |
+| Plugins only available under `--config`, not `--root`       | Plugin names require a structured config file; `--root` is intentionally minimal | Good    |
+| Plugin SDK as a separate crate (`kiss-plugin-sdk`)          | Plugins depend only on SDK types, not server internals; clear ABI boundary       | Good    |
+| Middleware chain before router dispatch                      | Cross-cutting concerns (auth, future rate-limiting) separated from handler logic | Good    |
+| Public-route exemption list on `MiddlewareChain`            | `/health`, `/favicon.ico` must bypass auth without special-casing in each middleware | Good |
+| `AuthMiddleware` trusts `X-Authenticated-User` header       | Lambda@Edge validates JWTs at the edge; origin trusts the injected header because port 80 is locked to CloudFront IPs | Good |
+| `KISS_SKIP_AUTH` env var disables auth for local dev        | No Lambda@Edge in development; env var is explicit and visible (logged at startup) | Good  |
+| `VhostDispatcher` as router fallback                        | Virtual hosting is a dispatch concern, not a server-core concern; keeps Router generic | Good |
 | No async runtime                                            | Learning project stays simple; thread pool sufficient for goals                  | Good    |
 | Howard Hinnant `civil_from_days`                            | O(1) Gregorian arithmetic, replaces iterative year and month loops               | Good    |
 | `Result` propagation throughout                             | Eliminate all `unwrap()` on unhappy paths                                        | Good    |
@@ -89,7 +155,7 @@ fallback, so every request goes to file serving. Named routes exist for tests an
 | CloudFront for TLS termination (not server-side)            | Separation of concerns; auto-renewing ACM certs; CDN benefits free               | Good    |
 | `Connection: close` on all responses                        | Server handles one request per connection; prevents CLOSE-WAIT pile-up           | Good    |
 | 30-second read timeout                                      | Prevents worker exhaustion by stalled or slow clients                            | Good    |
-| Security group restricted to CloudFront prefix list         | Eliminates direct HTTP bypass of TLS termination                                 | Good    |
+| Security group restricts port 80 to CloudFront prefix list  | Eliminates direct HTTP bypass of TLS/auth; port 22 remains open for SSH admin    | Good    |
 
 ## TLS Termination Architecture
 
