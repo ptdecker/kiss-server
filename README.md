@@ -5,9 +5,9 @@
 A from-scratch HTTP/1.1 static file server written in pure Rust with no external dependencies beyond
 the `log` crate facade. A client can request any static file by path and receive a correct,
 RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong
-content type. kiss-server also supports a pre-dispatch middleware chain for cross-cutting concerns
-(authentication, rate limiting) and a plugin system for extending the server with prefix-routed
-request handlers.
+content type. The kiss-server also supports a pre-dispatch middleware chain for cross-cutting
+concerns (authentication, rate limiting) and a plugin system for extending the server with
+prefix-routed request handlers.
 
 ## Build & Run Locally
 
@@ -17,18 +17,21 @@ cargo build --release
 ```
 
 The `--root` flag is required and specifies the directory to serve files from. The `--port` flag is
-optional (defaults to 6502).
+optional (defaults to 6502 as a tribute to the
+[MOS 6502](https://en.wikipedia.org/wiki/MOS_Technology_6502)).
 
 ```bash
-# Example: serve the current directory on port 8080
+# Example: serve the current directory on the more traditional port 8080
 ./target/release/kiss-server --root . --port 8080
 ```
 
 ## Development
 
-[Just](https://github.com/casey/just) recipes for common tasks:
+The [Just](https://github.com/casey/just) command runner has recipes for common tasks:
 
 ```bash
+just --list        # List all available recipes
+
 just lint          # Format and lint (cargo fmt + cargo clippy)
 just build         # Lint then build
 just run           # Lint, build, then run
@@ -39,11 +42,11 @@ just docs          # Generate and open rustdoc in browser
 
 ### Auth middleware and local testing
 
-In production, kiss-server runs behind CloudFront + Lambda@Edge. Lambda@Edge validates JWTs and
-injects an `X-Authenticated-User` header before the request reaches the origin. The server trusts
-this header because only CloudFront can reach the EC2 instance (a security group restricts port 80
-to
-CloudFront IP ranges).
+In production, the kiss-server is designed to run behind CloudFront plus Lambda@Edge. Lambda@Edge
+validates JWTs and injects an `X-Authenticated-User` header before the request reaches the origin.
+The server trusts this header because only CloudFront can reach port 80 on the EC2 instance (the
+security group restricts port 80 to the CloudFront managed prefix list; port 22 remains open for
+SSH administration).
 
 In development there is no Lambda@Edge, so every request gets a 401 unless you work around the
 middleware. Two options:
@@ -112,15 +115,16 @@ documentation.
 
 ## Architecture
 
-kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for concurrent
-connections. The request lifecycle is:
+The kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for
+concurrent connections. The request lifecycle is:
 
 1. **Middleware chain** — runs before dispatch; each middleware may inspect/mutate the request
    context or short-circuit with a response (e.g., 401 Unauthorized). Named routes can be exempted
    from the chain (public routes). The built-in auth middleware validates the `X-Authenticated-User`
    header injected by Lambda@Edge in production.
-2. **Router dispatch** — matches method + path to the first registered handler. Exact routes take
-   priority over prefix routes; path traversal and malformed percent-sequences are rejected with 404.
+2. **Router dispatch** — matches the method and path to the first registered handler. Exact routes
+   take priority over prefix routes; path traversal and malformed percent-sequences are rejected
+   with 404.
 3. **Handlers** — produce the response. The built-in `StaticFileHandler` serves files with
    binary-safe reads, MIME detection, and path traversal prevention.
 
