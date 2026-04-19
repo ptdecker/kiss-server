@@ -11,11 +11,11 @@
 //!
 
 use std::{
-    env::{var, VarError},
+    env::{VarError, var},
     str::FromStr,
 };
 
-use log::{set_boxed_logger, set_max_level, LevelFilter, Log, Metadata, Record};
+use log::{LevelFilter, Log, Metadata, Record, set_boxed_logger, set_max_level};
 
 use crate::time::DateTime;
 

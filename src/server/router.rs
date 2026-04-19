@@ -1,8 +1,8 @@
 //! Request router: dispatches requests to registered handlers in registration order.
 
 use super::{
-    context::Context, error::Error, handler::Handler, request::RequestMethod, response::Response,
-    HandlerResult, Result,
+    HandlerResult, Result, context::Context, error::Error, handler::Handler,
+    request::RequestMethod, response::Response,
 };
 
 /// Routes incoming requests to the first registered handler whose method and path match.
@@ -91,7 +91,7 @@ impl Router {
             Err(_) => {
                 return NotFoundHandler
                     .handle(ctx)
-                    .map_err(|e| Error::InvalidRequest(e.to_string()))
+                    .map_err(|e| Error::InvalidRequest(e.to_string()));
             }
         };
         if decoded.split('/').any(|c| c == "..") {
@@ -146,10 +146,10 @@ impl Handler for NotFoundHandler {
 mod tests {
     use super::*;
     use crate::server::{
+        HandlerResult,
         context::Context,
         request::{Request, RequestMethod},
         response::Response,
-        HandlerResult,
     };
     use crate::url::Url;
 

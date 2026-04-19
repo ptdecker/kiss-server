@@ -99,8 +99,8 @@ mod tests {
     use super::*;
     use crate::server::response::Response;
     use crate::server::test_support::test_context;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// Middleware that counts how many times it was called.
     struct CountingMiddleware {

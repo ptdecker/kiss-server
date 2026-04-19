@@ -22,10 +22,10 @@ pub fn normalize_host(raw: &str) -> String {
     let mut s = raw.to_ascii_lowercase();
 
     // Strip trailing port: find last ':' and check if everything after is digits.
-    if let Some(pos) = s.rfind(':') {
-        if s[pos + 1..].chars().all(|c| c.is_ascii_digit()) {
-            s.truncate(pos);
-        }
+    if let Some(pos) = s.rfind(':')
+        && s[pos + 1..].chars().all(|c| c.is_ascii_digit())
+    {
+        s.truncate(pos);
     }
 
     // Strip www. prefix.
