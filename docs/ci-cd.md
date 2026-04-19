@@ -1,6 +1,6 @@
 # CI/CD Pipeline
 
-kiss-server uses GitHub Actions for continuous integration and continuous deployment.
+The kiss-server uses GitHub Actions for continuous integration and continuous deployment.
 
 ## How CI Works
 
@@ -99,29 +99,30 @@ Status progresses from `InProgress` to `Completed`. You can also verify by check
 ## Production Runtime Configuration
 
 The production systemd unit (written by `scripts/install-kiss-server.sh`) starts the server with
-`--root`, not `--config`:
+`--config`:
 
 ```
-ExecStart=/usr/local/bin/kiss-server --root /var/www/ptodd.org --port 8080
+ExecStart=/usr/local/bin/kiss-server --config /etc/kiss-server/kiss-server.toml --port 8080
 ```
 
-This means **plugins are not active in production today**. The CD pipeline deploys only the binary
-— no `kiss-server.toml` config file exists on EC2.
+The install script also writes `/etc/kiss-server/kiss-server.toml`:
 
-To enable plugins (e.g., `kiss-url-shortener`) in production:
+```toml
+[server]
+default_root = "/var/www/ptodd.org"
 
-1. Create `/etc/kiss-server/kiss-server.toml` on the EC2 instance with the desired `[[plugin]]`
-   blocks and a `[server]` `default_root` pointing to `/var/www/ptodd.org`.
-2. Update the systemd `ExecStart` in `/etc/systemd/system/kiss-server.service` to:
-   ```
-   ExecStart=/usr/local/bin/kiss-server --config /etc/kiss-server/kiss-server.toml --port 8080
-   ```
-3. Run `sudo systemctl daemon-reload && sudo systemctl restart kiss-server`.
-4. Optionally update `scripts/install-kiss-server.sh` and the CD pipeline to deploy the config
-   file alongside the binary so the setup is reproducible.
+[[plugin]]
+name = "url-shortener"
+```
 
-Until those steps are taken, the server runs in simple static-file mode regardless of what plugins
-are compiled into the binary.
+This means the `kiss-url-shortener` plugin is active in production after running
+`scripts/install-kiss-server.sh`. The three hardcoded seed short codes (`/s/gh`, `/s/rs`, `/s/hn`)
+are available immediately on startup.
+
+The CD pipeline deploys only the binary — the config file on EC2 is written once by the install
+script and persists across deployments. To change the plugin configuration, update
+`/etc/kiss-server/kiss-server.toml` on the EC2 instance directly, then restart the service, or
+re-run `scripts/install-kiss-server.sh` to reset it to the canonical config.
 
 ## Checking EC2 Health
 

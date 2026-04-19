@@ -16,8 +16,9 @@
 #   5.   Build release binary
 #   6.   Install binary as /usr/local/bin/kiss-server
 #   7.   Create kiss-server system user
-#   8.   Write and enable systemd unit
-#   9.   Enable and start the service
+#   8.   Write /etc/kiss-server/kiss-server.toml (plugins + default_root)
+#   9.   Write systemd unit (uses --config, not --root)
+#   10.  Enable and start the service
 
 set -euo pipefail
 
@@ -122,9 +123,25 @@ else
   sudo useradd --system --no-create-home --shell /sbin/nologin "$KISS_USER"
 fi
 
-# ─── Step 8: Write systemd unit ───────────────────────────────────────────────
+# ─── Step 8: Write kiss-server.toml config ────────────────────────────────────
 
-echo "==> Step 8: Systemd unit"
+echo "==> Step 8: Config file"
+
+sudo mkdir -p /etc/kiss-server
+sudo tee /etc/kiss-server/kiss-server.toml > /dev/null << 'CONFIG'
+[server]
+default_root = "/var/www/ptodd.org"
+
+[[plugin]]
+name = "url-shortener"
+CONFIG
+
+sudo chmod 644 /etc/kiss-server/kiss-server.toml
+echo "  Config written to /etc/kiss-server/kiss-server.toml"
+
+# ─── Step 9: Write systemd unit ───────────────────────────────────────────────
+
+echo "==> Step 9: Systemd unit"
 
 sudo tee "$SERVICE_FILE" > /dev/null << 'UNIT'
 [Unit]
@@ -134,7 +151,7 @@ After=network.target
 [Service]
 Type=simple
 User=kiss-server
-ExecStart=/usr/local/bin/kiss-server --root /var/www/ptodd.org --port 8080
+ExecStart=/usr/local/bin/kiss-server --config /etc/kiss-server/kiss-server.toml --port 8080
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -148,9 +165,9 @@ UNIT
 echo "  Systemd unit written to $SERVICE_FILE"
 sudo systemctl daemon-reload
 
-# ─── Step 9: Enable and start service ─────────────────────────────────────────
+# ─── Step 10: Enable and start service ────────────────────────────────────────
 
-echo "==> Step 9: Enable and start kiss-server"
+echo "==> Step 10: Enable and start kiss-server"
 sudo systemctl enable kiss-server
 sudo systemctl restart kiss-server
 echo "  kiss-server enabled and started."
