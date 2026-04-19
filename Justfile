@@ -1,3 +1,15 @@
+# justfile — kiss-server task runner
+#
+# Run `just --list` to see all available recipes.
+#
+# Recipes by category:
+#   Setup:          install-hooks
+#   Development:    lint, build, run, test
+#   Documentation:  build-docs, docs
+#   Infrastructure: verify-dns, branch-protection, prod-protection
+#   Deployment:     bump, deploy, deploy-status
+#   Operations:     logs, logs-follow
+
 set dotenv-load
 
 # Install git hooks from scripts/
