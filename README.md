@@ -5,7 +5,9 @@
 A from-scratch HTTP/1.1 static file server written in pure Rust with no external dependencies beyond
 the `log` crate facade. A client can request any static file by path and receive a correct,
 RFC-compliant HTTP/1.1 response — without crashing, leaking filesystem paths, or serving the wrong
-content type.
+content type. kiss-server also supports a pre-dispatch middleware chain for cross-cutting concerns
+(authentication, rate limiting) and a plugin system for extending the server with prefix-routed
+request handlers.
 
 ## Build & Run Locally
 
@@ -39,7 +41,8 @@ just docs          # Generate and open rustdoc in browser
 
 In production, kiss-server runs behind CloudFront + Lambda@Edge. Lambda@Edge validates JWTs and
 injects an `X-Authenticated-User` header before the request reaches the origin. The server trusts
-this header because only CloudFront can reach the EC2 instance (security group restricts port 80 to
+this header because only CloudFront can reach the EC2 instance (a security group restricts port 80
+to
 CloudFront IP ranges).
 
 In development there is no Lambda@Edge, so every request gets a 401 unless you work around the
@@ -60,7 +63,7 @@ mode only)`. Never set this in the production systemd unit.
 curl -H "X-Authenticated-User: dev" http://localhost:6502/
 ```
 
-Useful when you want to test auth-on behaviour (e.g. verifying a 401 is returned without the
+Useful when you want to test auth-on behavior (e.g., verifying a 401 is returned without the
 header) alongside normal requests.
 
 ### Testing plugins locally
@@ -84,10 +87,10 @@ KISS_SKIP_AUTH=1 ./target/debug/kiss-server --config kiss-server.toml --port 808
 
 The three hardcoded seed codes are available immediately after startup:
 
-| URL | Redirects to |
-|-----|-------------|
-| `http://localhost:8080/s/gh` | https://github.com/ptdecker |
-| `http://localhost:8080/s/rs` | https://www.rust-lang.org |
+| URL                          | Redirects to                 |
+|------------------------------|------------------------------|
+| `http://localhost:8080/s/gh` | https://github.com/ptdecker  |
+| `http://localhost:8080/s/rs` | https://www.rust-lang.org    |
 | `http://localhost:8080/s/hn` | https://news.ycombinator.com |
 
 Plugin state is in-memory and resets on every restart.
@@ -109,10 +112,24 @@ documentation.
 
 ## Architecture
 
-The kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for
-concurrent connections. Requests are parsed, routed to handlers by URL path, and static files are
-served with binary-safe reads, MIME detection, and path traversal prevention. The entire server is
-built on Rust's standard library — no async runtime, no frameworks.
+kiss-server uses a Handler, Context, and Router abstraction with a fixed thread pool for concurrent
+connections. The request lifecycle is:
+
+1. **Middleware chain** — runs before dispatch; each middleware may inspect/mutate the request
+   context or short-circuit with a response (e.g., 401 Unauthorized). Named routes can be exempted
+   from the chain (public routes). The built-in auth middleware validates the `X-Authenticated-User`
+   header injected by Lambda@Edge in production.
+2. **Router dispatch** — matches method + path to the first registered handler. Exact routes take
+   priority over prefix routes; path traversal and malformed percent-sequences are rejected with 404.
+3. **Handlers** — produce the response. The built-in `StaticFileHandler` serves files with
+   binary-safe reads, MIME detection, and path traversal prevention.
+
+**Plugin system** — optional prefix-routed handlers loaded at startup via `--config`. Plugins are
+built against the `kiss-plugin-sdk` crate (shared types: `Handler`, `KissPlugin`, `Context`,
+`Request`, `Response`) and wired into the router under their declared path prefix. The bundled
+`kiss-url-shortener` plugin (`/s/<code>`) is the reference implementation.
+
+The entire server is built on Rust's standard library — no async runtime, no frameworks.
 
 See [docs/design.md](docs/design.md) for the full architecture walkthrough.
 
