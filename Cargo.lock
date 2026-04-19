@@ -11,7 +11,15 @@ name = "kiss-server"
 version = "1.5.0"
 dependencies = [
  "kiss-plugin-sdk",
+ "kiss-url-shortener",
  "log",
+]
+
+[[package]]
+name = "kiss-url-shortener"
+version = "0.1.0"
+dependencies = [
+ "kiss-plugin-sdk",
 ]
 
 [[package]]

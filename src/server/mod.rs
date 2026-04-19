@@ -566,4 +566,139 @@ mod tests {
             response
         );
     }
+
+    // Checklist item 5: /s/* passes through auth middleware (not exempt)
+    #[test]
+    fn url_shortener_prefix_requires_auth() {
+        use crate::server::auth::AuthMiddleware;
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // GET /s/gh WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router.add_prefix(prefix, p);
+
+        let chain = middleware::MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health", "/favicon.ico"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 401"),
+            "unauthenticated /s/gh should return 401 (D-08), got: {:?}",
+            response
+        );
+    }
+
+    // Checklist item 5 (corollary): authenticated /s/gh reaches plugin and returns 302
+    #[test]
+    fn url_shortener_authenticated_request_returns_302() {
+        use crate::server::auth::AuthMiddleware;
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // GET /s/gh WITH X-Authenticated-User header
+            client
+                .write_all(
+                    b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
+                )
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router.add_prefix(prefix, p);
+
+        let chain = middleware::MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health", "/favicon.ico"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 302"),
+            "authenticated /s/gh should return 302 redirect, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Location: https://github.com/ptdecker"),
+            "expected Location header, got: {:?}",
+            response
+        );
+    }
+
+    // Checklist item 2: /health exact match is unaffected by prefix registration
+    #[test]
+    fn health_route_unaffected_by_plugin_prefix() {
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router
+            .add("GET", "/health", crate::handlers::RootHandler)
+            .unwrap();
+        router.add_prefix(prefix, p);
+
+        // No auth middleware -- just verify routing
+        let mw = Arc::new(middleware::MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "/health should return 200 (exact match wins over /s prefix), got: {:?}",
+            response
+        );
+    }
 }

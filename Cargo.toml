@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 kiss-plugin-sdk = { path = "../kiss-plugin-sdk" }
+kiss-url-shortener = { path = "../kiss-url-shortener" }
 log = { version = "0.4.20", features = ["std"] }

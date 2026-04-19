@@ -2,6 +2,8 @@
 //! Runs behind CloudFront for TLS termination at ptodd.org / www.ptodd.org.
 //! Supports multi-domain virtual hosting via `--config` or single-root via `--root`.
 
+use kiss_plugin_sdk::KissPlugin;
+use kiss_url_shortener::UrlShortener;
 use log::info;
 
 use logger::SimpleLogger;
@@ -143,23 +145,35 @@ fn main() -> Result<()> {
     let port = parse_port_from(&args)?;
     let addr = format!("0.0.0.0:{}", port);
     let (dispatcher, plugin_configs) = build_dispatcher(&args)?;
-    let router = Router::new().set_fallback(dispatcher);
+    let mut router = Router::new().set_fallback(dispatcher);
 
     if !plugin_configs.is_empty() {
         info!("{} plugin(s) configured", plugin_configs.len());
     }
 
     // Plugin activation: map each configured plugin name to its constructor (PLUG-03, D-03, D-08).
-    // Phase 23 will add real match arms here, e.g.:
-    //   "url-shortener" => { let p = UrlShortener::new(cfg); router.add_prefix(p.path_prefix(), p); }
-    // Until then, no plugins are registered — any [[plugin]] in the TOML is unknown.
-    if let Some(plugin_config) = plugin_configs.first() {
-        return Err(format!(
-            "unknown plugin '{}': not registered in main.rs; \
-             add a match arm or remove the [[plugin]] block from kiss-server.toml",
-            plugin_config.name
-        )
-        .into());
+    for cfg in &plugin_configs {
+        match cfg.name.as_str() {
+            "url-shortener" => {
+                let sdk_cfg = kiss_plugin_sdk::PluginConfig {
+                    name: cfg.name.clone(),
+                    extra: cfg.extra.clone(),
+                };
+                let p = UrlShortener::new(&sdk_cfg);
+                let prefix = p.path_prefix().to_string();
+                let name = p.name().to_string();
+                info!("  plugin: {} -> {}", name, prefix);
+                router.add_prefix(prefix, p);
+            }
+            other => {
+                return Err(format!(
+                    "unknown plugin '{}': not registered in main.rs; \
+                     add a match arm or remove the [[plugin]] block from kiss-server.toml",
+                    other
+                )
+                .into());
+            }
+        }
     }
 
     let middleware_chain = MiddlewareChain::new()
