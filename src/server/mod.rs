@@ -153,7 +153,7 @@ fn inject_standard_headers(ctx: &mut Context) {
     if ENABLE_POWERED_BY {
         ctx.response.add_header(
             "X-Powered-By",
-            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
+            concat!("kiss-server/", env!("CARGO_PKG_VERSION")),
         );
     }
     if !ctx.response.has_header("Connection") {
@@ -451,7 +451,7 @@ mod tests {
         handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
-            response.contains("X-Powered-By: kiss-serve/"),
+            response.contains("X-Powered-By: kiss-server/"),
             "expected X-Powered-By header, got: {:?}",
             response
         );
