@@ -16,9 +16,11 @@ use super::{
 /// The Rust server trusts it because only CloudFront can reach the origin.
 /// Direct-to-origin access bypasses auth — accepted because an EC2 security group
 /// restricts port 80 to CloudFront IP ranges only (Phase 17, T-22-01).
+#[allow(dead_code)]
 pub struct AuthMiddleware;
 
 impl AuthMiddleware {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         AuthMiddleware
     }

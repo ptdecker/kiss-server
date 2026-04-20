@@ -7,6 +7,7 @@ pub enum MiddlewareResult {
     /// Continue to the next middleware (or to dispatch if last).
     Continue,
     /// Stop the chain — middleware has written ctx.response.
+    #[allow(dead_code)]
     ShortCircuit,
 }
 
@@ -52,6 +53,7 @@ impl MiddlewareChain {
     }
 
     /// Register a middleware (value-chaining builder).
+    #[allow(dead_code)]
     pub fn add(mut self, m: impl Middleware + 'static) -> Self {
         self.middleware.push(Box::new(m));
         self
@@ -61,6 +63,7 @@ impl MiddlewareChain {
     ///
     /// Routes on this list bypass all middleware entirely. Comparison is
     /// exact-match against the percent-decoded request path (D-05).
+    #[allow(dead_code)]
     pub fn public_routes(mut self, routes: &[&str]) -> Self {
         self.public_routes = routes.iter().map(|s| s.to_string()).collect();
         self
