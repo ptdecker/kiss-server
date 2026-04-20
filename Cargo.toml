@@ -1,9 +1,16 @@
+[workspace]
+members = [
+    ".",
+    "kiss-plugin-sdk",
+    "kiss-url-shortener",
+]
+
 [package]
 name = "kiss-server"
-version = "1.4.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version = "1.5.0"
+edition = "2024"
 
 [dependencies]
+kiss-plugin-sdk = { path = "./kiss-plugin-sdk" }
+kiss-url-shortener = { path = "./kiss-url-shortener" }
 log = { version = "0.4.20", features = ["std"] }

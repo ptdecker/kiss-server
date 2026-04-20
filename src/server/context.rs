@@ -1,12 +1,2 @@
-//! Request/response pipeline context, threaded through the handler chain.
-
-use super::{request::Request, response::Response};
-
-/// Shared mutable state for a single HTTP request/response cycle.
-///
-/// Constructed per-request in handle_connection. The default response is 200 OK.
-/// Handlers overwrite `ctx.response` in place via the Response builder.
-pub struct Context {
-    pub request: Request,
-    pub response: Response,
-}
+//! Request/response pipeline context -- re-exported from kiss-plugin-sdk.
+pub use kiss_plugin_sdk::{AuthClaims, Context};

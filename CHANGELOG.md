@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-04-16
+
+### Added
+
+- `KissPlugin` trait (`src/server/plugin.rs`): plugins implement `name()`, `path_prefix()`,
+  and extend `Handler` — no changes to server core required to add a plugin
+- Prefix routing in `Router`: `add_prefix(prefix, handler)` dispatches requests whose decoded
+  path starts with the prefix; first-match wins (PLUG-02, PLUG-04)
+- `[[plugin]]` config sections in `kiss-server.toml`: each entry requires only `name`; presence
+  of the block activates the plugin, omitting it disables it; arbitrary extra key-value pairs
+  are supported for plugin-specific config (PLUG-03)
+- Plugin activation loop in `main.rs`: reads `config.plugins`, instantiates each by name,
+  registers with the router; unknown plugin names produce a clear startup error (not a panic)
+- `test_context(method, path)` helper in `src/server/test_support.rs`: constructs a `Context`
+  for unit-testing plugin `handle()` implementations without a live server (PLUG-06)
+- Architecture decision record: documents dynamic library rejection (ARCH-01), trait-object
+  pattern selection (ARCH-02), auth-as-middleware rationale with CVE evidence (AUTH-01), MVP
+  auth strategy via Lambda@Edge + header trust (AUTH-02), and post-MVP Rust-native JWT
+  replacement path (AUTH-03)
+- `scripts/pre-commit` hook: runs `cargo test` before every commit; `scripts/install-hooks.sh`
+  wires it into `.git/hooks`; `just install-hooks` installs it in one step
+
+### Changed
+
+- `just run` now defaults to `--root .` when no arguments are given, simplifying local dev
+- `just run` passes all arguments through to `cargo run` so `--config` and `--root` work as
+  expected from the `just` wrapper
+
 ## [1.4.0] - 2026-04-14
 
 ### Added

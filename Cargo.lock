@@ -3,10 +3,23 @@
 version = 4
 
 [[package]]
+name = "kiss-plugin-sdk"
+version = "0.1.0"
+
+[[package]]
 name = "kiss-server"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
+ "kiss-plugin-sdk",
+ "kiss-url-shortener",
  "log",
+]
+
+[[package]]
+name = "kiss-url-shortener"
+version = "0.1.0"
+dependencies = [
+ "kiss-plugin-sdk",
 ]
 
 [[package]]

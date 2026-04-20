@@ -1,0 +1,7 @@
+[package]
+name = "kiss-url-shortener"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+kiss-plugin-sdk = { path = "../kiss-plugin-sdk" }

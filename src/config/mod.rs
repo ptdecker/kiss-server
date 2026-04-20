@@ -10,6 +10,12 @@ pub struct VhostEntry {
     pub root: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct PluginConfig {
+    pub name: String,
+    pub extra: std::collections::HashMap<String, String>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ServerConfig {
     pub default_root: Option<String>,
@@ -19,6 +25,7 @@ pub struct ServerConfig {
 pub struct Config {
     pub server: ServerConfig,
     pub vhosts: Vec<VhostEntry>,
+    pub plugins: Vec<PluginConfig>,
 }
 
 // ===== Error =====
@@ -53,6 +60,7 @@ enum Section {
     None,
     Server,
     Vhost,
+    Plugin,
 }
 
 /// Parses a `key = "value"` line. Returns `(key, value)` with quotes stripped.
@@ -97,6 +105,17 @@ fn commit_vhost(entry: VhostEntry, lineno: usize) -> Result<VhostEntry, ConfigEr
     Ok(entry)
 }
 
+/// Commits a PluginConfig, validating required fields.
+fn commit_plugin(entry: PluginConfig, lineno: usize) -> Result<PluginConfig, ConfigError> {
+    if entry.name.is_empty() {
+        return Err(ConfigError::Parse(format!(
+            "line {}: [[plugin]] field 'name' must not be empty",
+            lineno + 1
+        )));
+    }
+    Ok(entry)
+}
+
 // ===== Config impl =====
 
 impl Config {
@@ -104,8 +123,10 @@ impl Config {
     pub fn parse(input: &str) -> Result<Config, ConfigError> {
         let mut server = ServerConfig::default();
         let mut vhosts: Vec<VhostEntry> = Vec::new();
+        let mut plugins: Vec<PluginConfig> = Vec::new();
         let mut section = Section::None;
         let mut current_vhost: Option<VhostEntry> = None;
+        let mut current_plugin: Option<PluginConfig> = None;
 
         for (lineno, raw_line) in input.lines().enumerate() {
             let line = raw_line.trim();
@@ -120,15 +141,34 @@ impl Config {
                 if let Some(entry) = current_vhost.take() {
                     vhosts.push(commit_vhost(entry, lineno)?);
                 }
+                if let Some(entry) = current_plugin.take() {
+                    plugins.push(commit_plugin(entry, lineno)?);
+                }
                 current_vhost = Some(VhostEntry {
                     domain: String::new(),
                     root: String::new(),
                 });
                 section = Section::Vhost;
+            } else if line == "[[plugin]]" {
+                // Commit any in-progress entries before switching a section
+                if let Some(entry) = current_vhost.take() {
+                    vhosts.push(commit_vhost(entry, lineno)?);
+                }
+                if let Some(entry) = current_plugin.take() {
+                    plugins.push(commit_plugin(entry, lineno)?);
+                }
+                current_plugin = Some(PluginConfig {
+                    name: String::new(),
+                    extra: std::collections::HashMap::new(),
+                });
+                section = Section::Plugin;
             } else if line == "[server]" {
                 // Commit in-progress vhost if any
                 if let Some(entry) = current_vhost.take() {
                     vhosts.push(commit_vhost(entry, lineno)?);
+                }
+                if let Some(entry) = current_plugin.take() {
+                    plugins.push(commit_plugin(entry, lineno)?);
                 }
                 section = Section::Server;
             } else if line.starts_with('[') {
@@ -174,17 +214,38 @@ impl Config {
                             }
                         }
                     }
+                    Section::Plugin => {
+                        let entry = current_plugin.as_mut().ok_or_else(|| {
+                            ConfigError::Parse(format!("line {}: internal parse error", lineno + 1))
+                        })?;
+                        match key.as_str() {
+                            "name" => entry.name = value,
+                            other => {
+                                entry.extra.insert(other.to_string(), value);
+                            }
+                        }
+                    }
                 }
             }
         }
 
         // Commit final in-progress vhost
         if let Some(entry) = current_vhost.take() {
-            let last_lineno = input.lines().count();
+            let last_lineno = input.lines().count().saturating_sub(1);
             vhosts.push(commit_vhost(entry, last_lineno)?);
         }
 
-        Ok(Config { server, vhosts })
+        // Commit the final in-progress plugin
+        if let Some(entry) = current_plugin.take() {
+            let last_lineno = input.lines().count().saturating_sub(1);
+            plugins.push(commit_plugin(entry, last_lineno)?);
+        }
+
+        Ok(Config {
+            server,
+            vhosts,
+            plugins,
+        })
     }
 
     /// Read and parse a config file from the disk.
@@ -423,5 +484,158 @@ root = "/var/www/ptodd.org"
         let cfg = result.unwrap();
         assert_eq!(cfg.vhosts.len(), 1);
         assert_eq!(cfg.vhosts[0].domain, "ptodd.org");
+    }
+
+    // ===== [[plugin]] config tests (Phase 21: PLUG-03, D-05, D-06, D-07, D-08) =====
+
+    #[test]
+    fn parse_single_plugin_with_name() {
+        let input = r#"
+[[plugin]]
+name = "url-shortener"
+"#;
+        let cfg = Config::parse(input).expect("should parse plugin");
+        assert_eq!(cfg.plugins.len(), 1, "expected 1 plugin");
+        assert_eq!(cfg.plugins[0].name, "url-shortener");
+        assert!(cfg.plugins[0].extra.is_empty(), "no extra keys expected");
+    }
+
+    #[test]
+    fn parse_plugin_with_extra_keys() {
+        let input = r#"
+[[plugin]]
+name = "url-shortener"
+base_url = "https://ptodd.org"
+max_entries = "10000"
+"#;
+        let cfg = Config::parse(input).expect("should parse plugin with extras");
+        assert_eq!(cfg.plugins.len(), 1);
+        assert_eq!(cfg.plugins[0].name, "url-shortener");
+        assert_eq!(
+            cfg.plugins[0].extra.get("base_url"),
+            Some(&"https://ptodd.org".to_string()),
+            "base_url should be in extra"
+        );
+        assert_eq!(
+            cfg.plugins[0].extra.get("max_entries"),
+            Some(&"10000".to_string()),
+            "max_entries should be in extra"
+        );
+    }
+
+    #[test]
+    fn parse_two_plugins() {
+        let input = r#"
+[[plugin]]
+name = "url-shortener"
+
+[[plugin]]
+name = "blog"
+"#;
+        let cfg = Config::parse(input).expect("should parse two plugins");
+        assert_eq!(cfg.plugins.len(), 2, "expected 2 plugins");
+        assert_eq!(cfg.plugins[0].name, "url-shortener");
+        assert_eq!(cfg.plugins[1].name, "blog");
+    }
+
+    #[test]
+    fn parse_plugin_missing_name_returns_err() {
+        let input = r#"
+[[plugin]]
+base_url = "https://ptodd.org"
+"#;
+        let err = Config::parse(input).expect_err("missing name should be error");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("name"),
+            "error should mention 'name', got: {:?}",
+            msg
+        );
+    }
+
+    #[test]
+    fn parse_vhost_then_plugin() {
+        let input = r#"
+[[vhost]]
+domain = "ptodd.org"
+root = "/var/www/ptodd.org"
+
+[[plugin]]
+name = "url-shortener"
+"#;
+        let cfg = Config::parse(input).expect("should parse vhost then plugin");
+        assert_eq!(cfg.vhosts.len(), 1, "expected 1 vhost");
+        assert_eq!(cfg.plugins.len(), 1, "expected 1 plugin");
+    }
+
+    #[test]
+    fn parse_plugin_then_vhost() {
+        let input = r#"
+[[plugin]]
+name = "url-shortener"
+
+[[vhost]]
+domain = "ptodd.org"
+root = "/var/www/ptodd.org"
+"#;
+        let cfg = Config::parse(input).expect("should parse plugin then vhost");
+        assert_eq!(cfg.vhosts.len(), 1, "expected 1 vhost");
+        assert_eq!(cfg.plugins.len(), 1, "expected 1 plugin");
+    }
+
+    #[test]
+    fn parse_plugin_between_vhosts() {
+        let input = r#"
+[[vhost]]
+domain = "ptodd.org"
+root = "/var/www/ptodd.org"
+
+[[plugin]]
+name = "url-shortener"
+
+[[vhost]]
+domain = "example.org"
+root = "/var/www/example.org"
+"#;
+        let cfg = Config::parse(input).expect("should parse plugin between vhosts");
+        assert_eq!(cfg.vhosts.len(), 2, "expected 2 vhosts");
+        assert_eq!(cfg.plugins.len(), 1, "expected 1 plugin");
+    }
+
+    #[test]
+    fn parse_no_plugins_gives_empty_vec() {
+        let input = r#"
+[[vhost]]
+domain = "ptodd.org"
+root = "/var/www/ptodd.org"
+"#;
+        let cfg = Config::parse(input).expect("should parse");
+        assert!(
+            cfg.plugins.is_empty(),
+            "no [[plugin]] blocks means empty vec"
+        );
+    }
+
+    #[test]
+    fn parse_empty_config_gives_empty_plugins() {
+        let cfg = Config::parse("").expect("empty should parse");
+        assert!(cfg.plugins.is_empty());
+    }
+
+    #[test]
+    fn parse_server_then_plugin() {
+        let input = r#"
+[server]
+default_root = "/var/www/default"
+
+[[plugin]]
+name = "url-shortener"
+"#;
+        let cfg = Config::parse(input).expect("should parse server then plugin");
+        assert_eq!(cfg.plugins.len(), 1);
+        assert_eq!(
+            cfg.server.default_root,
+            Some("/var/www/default".to_string())
+        );
     }
 }

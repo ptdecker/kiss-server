@@ -1,4 +1,20 @@
+# justfile — kiss-server task runner
+#
+# Run `just --list` to see all available recipes.
+#
+# Recipes by category:
+#   Setup:          install-hooks
+#   Development:    lint, build, run, test
+#   Documentation:  build-docs, docs
+#   Infrastructure: verify-dns, branch-protection, prod-protection
+#   Deployment:     bump, deploy, deploy-status
+#   Operations:     logs, logs-follow
+
 set dotenv-load
+
+# Install git hooks from scripts/
+install-hooks:
+    @bash scripts/install-hooks.sh
 
 # Lint the project
 lint:
@@ -9,9 +25,10 @@ lint:
 build: lint
     @cargo build
 
-# Run the web site from source
-run: build
-    @cargo run
+# Run the web site from source. Defaults to --root . for local dev.
+# Override: just run -- --config /path/to/kiss-server.toml
+run *ARGS: build
+    @cargo run -- $([ -z "{{ARGS}}" ] && echo "--root ." || echo "{{ARGS}}")
 
 # Test the web site from source
 test: build

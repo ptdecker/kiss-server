@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::server::{Context, Handler, Response, Result};
+use crate::server::{Context, Handler, HandlerResult, Response};
 
 use super::StaticFileHandler;
 
@@ -22,10 +22,10 @@ pub fn normalize_host(raw: &str) -> String {
     let mut s = raw.to_ascii_lowercase();
 
     // Strip trailing port: find last ':' and check if everything after is digits.
-    if let Some(pos) = s.rfind(':') {
-        if s[pos + 1..].chars().all(|c| c.is_ascii_digit()) {
-            s.truncate(pos);
-        }
+    if let Some(pos) = s.rfind(':')
+        && s[pos + 1..].chars().all(|c| c.is_ascii_digit())
+    {
+        s.truncate(pos);
     }
 
     // Strip www. prefix.
@@ -68,7 +68,7 @@ impl VhostDispatcher {
 }
 
 impl Handler for VhostDispatcher {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         let raw_host = ctx.request.host.as_deref().unwrap_or("");
         let host = normalize_host(raw_host);
 
@@ -93,7 +93,7 @@ fn html_escape(s: &str) -> String {
 }
 
 /// Build a 200 parked-domain HTML response.
-fn parked_page(ctx: &mut Context, host: &str) -> Result<()> {
+fn parked_page(ctx: &mut Context, host: &str) -> HandlerResult<()> {
     let safe_host = html_escape(host);
     let html = format!(
         "<!DOCTYPE html>\n<html>\n<head><title>Parked Domain</title></head>\n<body>\n<p>{} is parked here but has no content.</p>\n</body>\n</html>",
@@ -122,8 +122,11 @@ mod tests {
                 method: RequestMethod::Get,
                 target: Url::from("/"),
                 host: host.map(|h| h.to_string()),
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
+            decoded_path: None,
         }
     }
 
@@ -133,8 +136,11 @@ mod tests {
                 method: RequestMethod::Get,
                 target: Url::from(path),
                 host: host.map(|h| h.to_string()),
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
+            decoded_path: None,
         }
     }
 

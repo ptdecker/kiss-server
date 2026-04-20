@@ -6,18 +6,27 @@
 use log::{debug, info, warn};
 use std::{
     fmt,
-    io::{prelude::*, BufReader},
+    io::{BufReader, prelude::*},
     net::{TcpListener, TcpStream},
     result,
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::{Duration, Instant},
 };
 
+pub use auth::AuthMiddleware;
+#[allow(unused_imports)]
+pub use context::AuthClaims;
 pub use context::Context;
 pub use error::{Error, Result};
 pub use handler::Handler;
+/// Handler-compatible Result re-exported from SDK.
+pub use kiss_plugin_sdk::Result as HandlerResult;
+use middleware::MiddlewareResult as MwResult;
+#[allow(unused_imports)]
+pub use middleware::{Middleware, MiddlewareChain, MiddlewareResult};
 use pool::ThreadPool;
+#[allow(unused_imports)]
 pub use request::Request;
 #[allow(unused_imports)]
 pub use request::RequestMethod;
@@ -26,14 +35,22 @@ pub use router::Router;
 
 use crate::time::DateTime;
 
+mod auth;
 mod context;
 mod error;
 mod handler;
+mod middleware;
+mod plugin;
+#[allow(unused_imports)]
+pub use plugin::KissPlugin;
 mod pool;
 mod request;
 mod response;
 mod router;
 mod worker;
+
+#[cfg(test)]
+mod test_support;
 
 /// Tread pool size
 const DEFAULT_POOL_SIZE: usize = 4;
@@ -55,6 +72,8 @@ pub struct Server {
     pool: ThreadPool,
     /// The router, which dispatches requests to handlers.
     router: Arc<Router>,
+    /// The middleware chain, which runs before dispatch.
+    middleware: Arc<MiddlewareChain>,
 }
 
 impl Server {
@@ -65,22 +84,31 @@ impl Server {
             listener: TcpListener::bind(&addr)?,
             pool: ThreadPool::build(DEFAULT_POOL_SIZE)?,
             router: Arc::new(Router::new()),
+            middleware: Arc::new(MiddlewareChain::new()),
         })
     }
 
-    /// Set the router for this server (builder pattern).
-    /// If not called, all requests receive 404 Not Found.
+    /// Set the router for this server (builder pattern). If not called, all requests receive 404
+    /// Not Found.
     pub fn with_router(mut self, router: Router) -> Self {
         self.router = Arc::new(router);
+        self
+    }
+
+    /// Set the middleware chain for this server (builder pattern). If not called, an empty chain is
+    /// used (no middleware runs).
+    pub fn with_middleware(mut self, chain: MiddlewareChain) -> Self {
+        self.middleware = Arc::new(chain);
         self
     }
 
     pub fn run(&self) -> Result<()> {
         info!("Listening for connections on {}", &self.addr);
         for stream_result in self.listener.incoming() {
-            let router = Arc::clone(&self.router); // clone BEFORE move closure
+            let router = Arc::clone(&self.router);
+            let middleware = Arc::clone(&self.middleware);
             self.pool.execute(move || match stream_result {
-                Ok(stream) => handle_connection(stream, router)
+                Ok(stream) => handle_connection(stream, router, middleware)
                     .unwrap_or_else(|e| warn!("handle_connection: {}", e)),
                 Err(e) => {
                     warn!("thread: {}", e);
@@ -94,8 +122,8 @@ impl Server {
 
 /// Send a minimal error response to the client and discard any writing failure.
 ///
-/// This is called on error paths where the BufReader has already been dropped,
-/// and the stream is available for writing again.
+/// This is called on error paths where the BufReader has already been dropped, and the stream is
+/// available for writing again.
 fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str, message: &str) {
     let body = message.as_bytes().to_vec();
     let content_length = body.len().to_string();
@@ -113,7 +141,31 @@ fn send_error_response(stream: &mut TcpStream, status: u16, reason: &'static str
     let _ = response.write_to(stream);
 }
 
-fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
+/// Inject Date, X-Powered-By, and Connection headers into ctx.response.
+///
+/// Called on both the normal dispatch path and the middleware short-circuit path
+/// to ensure consistent HTTP response headers regardless of how the response was
+/// generated.
+fn inject_standard_headers(ctx: &mut Context) {
+    if let Ok(dt) = DateTime::now() {
+        ctx.response.add_header("Date", &dt.to_imf_fixdate());
+    }
+    if ENABLE_POWERED_BY {
+        ctx.response.add_header(
+            "X-Powered-By",
+            concat!("kiss-server/", env!("CARGO_PKG_VERSION")),
+        );
+    }
+    if !ctx.response.has_header("Connection") {
+        ctx.response.add_header("Connection", "close");
+    }
+}
+
+fn handle_connection(
+    mut stream: TcpStream,
+    router: Arc<Router>,
+    middleware: Arc<MiddlewareChain>,
+) -> Result<()> {
     let start = Instant::now();
     debug!("handling a connection");
     stream.set_read_timeout(Some(Duration::from_secs(READ_TIMEOUT_SECS)))?;
@@ -174,7 +226,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         return Ok(()); // empty request — close connection silently (no response needed)
     }
 
-    let request = match Request::parse(&http_request) {
+    let request = match request::parse_request(&http_request) {
         Ok(r) => r,
         Err(e) => {
             send_error_response(&mut stream, 400, "Bad Request", &e.to_string());
@@ -193,7 +245,39 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
     let mut ctx = Context {
         request,
         response: Response::new(200, "OK"),
+        auth: None,
+        decoded_path: None,
     };
+
+    // Run a middleware chain before dispatch (MIDL-01).
+    // ShortCircuit means middleware wrote ctx.response — skip dispatch entirely (MIDL-02).
+    if let MwResult::ShortCircuit = middleware.run(&mut ctx) {
+        inject_standard_headers(&mut ctx);
+
+        // Capture access log fields before write_to consumes the response
+        let resp_status = ctx.response.status();
+        let resp_bytes = ctx.response.body_len();
+        let host_val = ctx.request.host.as_deref().unwrap_or("-").to_string();
+        let method_str = ctx.request.method.to_string();
+        let target_str = ctx.request.target.clone();
+
+        ctx.response.write_to(&mut stream)?;
+
+        let elapsed_ms = start.elapsed().as_millis();
+        info!(
+            target: "access",
+            "{} HTTP/1.1 {} {} host={} status={} bytes={} duration_ms={}",
+            peer,
+            method_str,
+            target_str,
+            host_val,
+            resp_status,
+            resp_bytes,
+            elapsed_ms
+        );
+
+        return Ok(());
+    }
 
     if let Err(e) = router.dispatch(&mut ctx) {
         warn!("handler error: {}", e);
@@ -206,22 +290,7 @@ fn handle_connection(mut stream: TcpStream, router: Arc<Router>) -> Result<()> {
         return Err(e);
     }
 
-    // Inject a Date header after dispatch (HTTP-03: every response must have Date)
-    if let Ok(dt) = DateTime::now() {
-        ctx.response.add_header("Date", &dt.to_imf_fixdate());
-    }
-
-    // This rather dumb lint suppression is needed to make either Clippy or RustRover happy with us
-    // temporarily using a constant here instead of a configuration option
-    #[allow(clippy::bool_comparison)]
-    if ENABLE_POWERED_BY == true {
-        ctx.response.add_header(
-            "X-Powered-By",
-            concat!("kiss-serve/", env!("CARGO_PKG_VERSION")),
-        );
-    }
-
-    ctx.response.add_header("Connection", "close");
+    inject_standard_headers(&mut ctx);
 
     // Capture access log fields before write_to consumes the response
     let resp_status = ctx.response.status();
@@ -272,7 +341,8 @@ mod tests {
             let _ = client.read_to_end(&mut buf);
         });
         let (stream, _) = listener.accept()?;
-        let result = handle_connection(stream, router);
+        let middleware = Arc::new(MiddlewareChain::new());
+        let result = handle_connection(stream, router, middleware);
         client_thread.join().unwrap();
         result
     }
@@ -320,7 +390,8 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        handle_connection(stream, Arc::new(router)).unwrap();
+        let middleware = Arc::new(MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(response.contains("HTTP/1.1 200 OK"), "missing status line");
         assert!(response.contains("Content-Type:"), "missing Content-Type");
@@ -348,7 +419,8 @@ mod tests {
         });
         let (stream, _) = listener.accept().unwrap();
         // Empty router — no routes registered
-        handle_connection(stream, Arc::new(Router::new())).unwrap();
+        let middleware = Arc::new(MiddlewareChain::new());
+        handle_connection(stream, Arc::new(Router::new()), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
             response.contains("HTTP/1.1 404"),
@@ -375,11 +447,258 @@ mod tests {
         router
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
-        handle_connection(stream, Arc::new(router)).unwrap();
+        let middleware = Arc::new(MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), middleware).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
-            response.contains("X-Powered-By: kiss-serve/"),
+            response.contains("X-Powered-By: kiss-server/"),
             "expected X-Powered-By header, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_short_circuit_returns_401_with_standard_headers() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request to /api/data WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /api/data HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let router = Arc::new(Router::new());
+        let chain = MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, router, mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 401"),
+            "expected 401 for unauthenticated request, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Date:"),
+            "short-circuit response must have Date header, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Connection: close"),
+            "short-circuit response must have Connection: close, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_exempt_route_bypasses_auth() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request to /health WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/health", crate::handlers::RootHandler)
+            .unwrap();
+        let chain = MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "exempt /health should return 200 without auth header, got: {:?}",
+            response
+        );
+    }
+
+    #[test]
+    fn middleware_authenticated_request_reaches_handler() {
+        use crate::server::auth::AuthMiddleware;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // Request WITH X-Authenticated-User header to a route that exists
+            client
+                .write_all(
+                    b"GET / HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
+                )
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let mut router = Router::new();
+        router
+            .add("GET", "/", crate::handlers::RootHandler)
+            .unwrap();
+        let chain = MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "authenticated request should reach handler, got: {:?}",
+            response
+        );
+    }
+
+    // Checklist item 5: /s/* passes through auth middleware (not exempt)
+    #[test]
+    fn url_shortener_prefix_requires_auth() {
+        use crate::server::auth::AuthMiddleware;
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // GET /s/gh WITHOUT X-Authenticated-User header
+            client
+                .write_all(b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router.add_prefix(prefix, p).unwrap();
+
+        let chain = MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health", "/favicon.ico"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 401"),
+            "unauthenticated /s/gh should return 401 (D-08), got: {:?}",
+            response
+        );
+    }
+
+    // Checklist item 5 (corollary): authenticated /s/gh reaches plugin and returns 302
+    #[test]
+    fn url_shortener_authenticated_request_returns_302() {
+        use crate::server::auth::AuthMiddleware;
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            // GET /s/gh WITH X-Authenticated-User header
+            client
+                .write_all(
+                    b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
+                )
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router.add_prefix(prefix, p).unwrap();
+
+        let chain = MiddlewareChain::new()
+            .add(AuthMiddleware::new())
+            .public_routes(&["/health", "/favicon.ico"]);
+        let mw = Arc::new(chain);
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 302"),
+            "authenticated /s/gh should return 302 redirect, got: {:?}",
+            response
+        );
+        assert!(
+            response.contains("Location: https://github.com/ptdecker"),
+            "expected Location header, got: {:?}",
+            response
+        );
+    }
+
+    // Checklist item 2: /health exact match is unaffected by prefix registration
+    #[test]
+    fn health_route_unaffected_by_plugin_prefix() {
+        use kiss_plugin_sdk::KissPlugin;
+        use kiss_url_shortener::UrlShortener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client_thread = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).unwrap();
+            client
+                .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap_or(0);
+            response
+        });
+        let (stream, _) = listener.accept().unwrap();
+
+        let config = kiss_plugin_sdk::PluginConfig {
+            name: "url-shortener".to_string(),
+            extra: Default::default(),
+        };
+        let p = UrlShortener::new(&config);
+        let prefix = p.path_prefix().to_string();
+        let mut router = Router::new();
+        router
+            .add("GET", "/health", crate::handlers::RootHandler)
+            .unwrap();
+        router.add_prefix(prefix, p).unwrap();
+
+        // No auth middleware -- just verify routing
+        let mw = Arc::new(MiddlewareChain::new());
+        handle_connection(stream, Arc::new(router), mw).unwrap();
+        let response = client_thread.join().unwrap();
+        assert!(
+            response.contains("HTTP/1.1 200"),
+            "/health should return 200 (exact match wins over /s prefix), got: {:?}",
             response
         );
     }

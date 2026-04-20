@@ -3,7 +3,7 @@
 //! Each handler implements the [`server::Handler`] trait and writes its response into
 //! `ctx.response` in place. Handlers are registered with the [`server::Router`] in `main.rs`.
 
-use crate::server::{Context, Handler, RequestMethod, Response, Result};
+use crate::server::{Context, Handler, HandlerResult, RequestMethod, Response, Result};
 use std::path::PathBuf;
 
 mod vhost;
@@ -17,7 +17,7 @@ pub use vhost::VhostDispatcher;
 pub struct RootHandler;
 
 impl Handler for RootHandler {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         let body = b"OK\n".to_vec();
         let content_length = body.len().to_string();
         ctx.response = Response::new(200, "OK")
@@ -52,7 +52,7 @@ fn mime_type(path: &std::path::Path) -> &'static str {
 /// Sets a 404 Not Found response on the context.
 ///
 /// Used by StaticFileHandler for missing files and traversal rejections.
-fn not_found(ctx: &mut Context) -> Result<()> {
+fn not_found(ctx: &mut Context) -> HandlerResult<()> {
     let body = b"Not Found\n".to_vec();
     let content_length = body.len().to_string();
     ctx.response = Response::new(404, "Not Found")
@@ -88,7 +88,7 @@ impl StaticFileHandler {
 }
 
 impl Handler for StaticFileHandler {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         // Decode the request path — router already rejected dotdot components.
         // An invalid %-sequence is a malformed request; treat as 404 (not 500).
         let decoded = match ctx.request.target.decoded_path() {
@@ -162,8 +162,11 @@ mod tests {
                 method: RequestMethod::Get,
                 target: Url::from("/"),
                 host: None,
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
+            decoded_path: None,
         }
     }
 
@@ -242,8 +245,11 @@ mod tests {
                 method,
                 target: Url::from(path),
                 host: None,
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
+            decoded_path: None,
         }
     }
 

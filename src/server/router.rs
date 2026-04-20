@@ -1,15 +1,17 @@
 //! Request router: dispatches requests to registered handlers in registration order.
 
 use super::{
-    context::Context, handler::Handler, request::RequestMethod, response::Response, Result,
+    HandlerResult, Result, context::Context, error::Error, handler::Handler,
+    request::RequestMethod, response::Response,
 };
 
 /// Routes incoming requests to the first registered handler whose method and path match.
 ///
-/// Unmatched requests are handled by the registered fallback handler when set, or by the
-/// built-in `NotFoundHandler` (404) when no fallback is registered.
+/// Unmatched requests are handled by the registered fallback handler when set, or by the built-in
+/// `NotFoundHandler` (404) when no fallback is registered.
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
+    prefix_routes: Vec<(String, String, Box<dyn Handler>)>,
     fallback: Option<Box<dyn Handler>>,
 }
 
@@ -17,6 +19,7 @@ impl std::fmt::Debug for Router {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Router")
             .field("routes_count", &self.routes.len())
+            .field("prefix_routes_count", &self.prefix_routes.len())
             .field("has_fallback", &self.fallback.is_some())
             .finish()
     }
@@ -27,15 +30,16 @@ impl Router {
     pub fn new() -> Self {
         Router {
             routes: Vec::new(),
+            prefix_routes: Vec::new(),
             fallback: None,
         }
     }
 
     /// Set a fallback handler for unmatched requests (value-chaining builder).
     ///
-    /// When set, the fallback handler is called for any request that does not match a
-    /// registered route. If no fallback is set, unmatched requests receive a built-in 404.
-    /// The safety guard (dotdot rejection, invalid %-sequences) still runs before the fallback.
+    /// When set, the fallback handler is called for any request that does not match a registered
+    /// route. If no fallback is set, unmatched requests receive a built-in 404. The safety guard
+    /// (dotdot rejection, invalid %-sequences) still runs before the fallback.
     pub fn set_fallback(mut self, handler: impl Handler + 'static) -> Self {
         self.fallback = Some(Box::new(handler));
         self
@@ -43,45 +47,93 @@ impl Router {
 
     /// Register a handler for the given HTTP method and exact path.
     ///
-    /// Routes are checked in registration order; the first match wins.
-    /// Returns `Err` if `method` is not a valid HTTP method string.
+    /// Routes are checked in registration order; the first match wins. Returns `Err` if `method` is
+    /// not a valid HTTP method string.
     ///
     /// Not called from production `main()` (all requests go to the StaticFileHandler fallback).
     /// Retained for tests and future use.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn add(&mut self, method: &str, path: &str, handler: impl Handler + 'static) -> Result<()> {
-        let method = RequestMethod::try_from(method)?;
-        self.routes
-            .push((method, path.to_string(), Box::new(handler)));
+        self.routes.push((
+            RequestMethod::try_from(method).map_err(|e| Error::InvalidRequest(e.to_string()))?,
+            path.to_string(),
+            Box::new(handler),
+        ));
+        Ok(())
+    }
+
+    /// Register a handler for all requests whose decoded path starts with `prefix`.
+    ///
+    /// Prefix routes are checked after exact-match routes but before the fallback. Routes are
+    /// tried in registration order; the first match wins (PLUG-04). Register more-specific prefixes
+    /// before less-specific ones.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn add_prefix(
+        &mut self,
+        prefix: impl Into<String>,
+        handler: impl Handler + 'static,
+    ) -> Result<()> {
+        let prefix = prefix.into();
+        if prefix.is_empty() || prefix == "/" {
+            return Err(Error::InvalidRequest(
+                "plugin prefix must be non-empty and not '/' (both match all paths)".to_string(),
+            ));
+        }
+        let prefix_slash = format!("{}/", prefix);
+        self.prefix_routes
+            .push((prefix, prefix_slash, Box::new(handler)));
         Ok(())
     }
 
     /// Dispatch the request in `ctx` to the first matching handler.
     ///
-    /// The path is percent-decoded before routing. Invalid %-sequences and paths
-    /// containing `..` components are rejected with 404 before any handler runs.
+    /// The path is percent-decoded before routing. Invalid %-sequences and paths containing `..`
+    /// components are rejected with 404 before any handler runs.
     ///
-    /// If no route matches, calls the registered fallback handler when set, or the
-    /// built-in NotFoundHandler (404) when no fallback is registered.
-    /// Returns `Ok(())` for all cases including rejection — never returns `Err` for
-    /// path rejection (callers map `Err` to 500).
+    /// If no route matches, calls the registered fallback handler when set, or the built-in
+    /// NotFoundHandler (404) when no fallback is registered. Returns `Ok(())` for all cases
+    /// including rejection — never returns `Err` for path rejection (callers map `Err` to 500).
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
-        let decoded = match ctx.request.target.decoded_path() {
-            Ok(d) => d,
-            Err(_) => return NotFoundHandler.handle(ctx),
-        };
-        if decoded.split('/').any(|c| c == "..") {
-            return NotFoundHandler.handle(ctx);
+        // Reuse cached decoded path from middleware if available; decode once otherwise.
+        if ctx.decoded_path.is_none() {
+            match ctx.request.target.decoded_path() {
+                Ok(d) => ctx.decoded_path = Some(d),
+                Err(_) => {
+                    return NotFoundHandler
+                        .handle(ctx)
+                        .map_err(|e| Error::InvalidRequest(e.to_string()));
+                }
+            }
         }
-        let method = &ctx.request.method;
+        let decoded = ctx.decoded_path.as_deref().unwrap();
+        if decoded.split('/').any(|c| c == "..") {
+            return NotFoundHandler
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string()));
+        }
         for (route_method, route_path, handler) in &self.routes {
-            if route_method == method && route_path.as_str() == decoded.as_str() {
-                return handler.handle(ctx);
+            if route_method == &ctx.request.method && route_path.as_str() == decoded {
+                return handler
+                    .handle(ctx)
+                    .map_err(|e| Error::InvalidRequest(e.to_string()));
+            }
+        }
+        // Prefix routes: checked after exact matches, before fallback (PLUG-04).
+        // Segment-boundary match: prefix "/s" matches "/s" and "/s/..." but not "/static".
+        for (p, p_slash, handler) in &self.prefix_routes {
+            if decoded == p.as_str() || decoded.starts_with(p_slash.as_str()) {
+                return handler
+                    .handle(ctx)
+                    .map_err(|e| Error::InvalidRequest(e.to_string()));
             }
         }
         match &self.fallback {
-            Some(h) => h.handle(ctx),
-            None => NotFoundHandler.handle(ctx),
+            Some(h) => h
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string())),
+            None => NotFoundHandler
+                .handle(ctx)
+                .map_err(|e| Error::InvalidRequest(e.to_string())),
         }
     }
 }
@@ -90,7 +142,7 @@ impl Router {
 struct NotFoundHandler;
 
 impl Handler for NotFoundHandler {
-    fn handle(&self, ctx: &mut Context) -> Result<()> {
+    fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
         let body = b"Not Found\n".to_vec();
         let content_length = body.len().to_string();
         ctx.response = Response::new(404, "Not Found")
@@ -106,6 +158,7 @@ impl Handler for NotFoundHandler {
 mod tests {
     use super::*;
     use crate::server::{
+        HandlerResult,
         context::Context,
         request::{Request, RequestMethod},
         response::Response,
@@ -115,7 +168,7 @@ mod tests {
     // Minimal handler for tests
     struct OkHandler;
     impl Handler for OkHandler {
-        fn handle(&self, ctx: &mut Context) -> Result<()> {
+        fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
             ctx.response = Response::new(200, "OK")
                 .header("Content-Length", "2")
                 .body(b"OK".to_vec());
@@ -129,8 +182,11 @@ mod tests {
                 method,
                 target: Url::from(path),
                 host: None,
+                headers: Vec::new(),
             },
             response: Response::new(200, "OK"),
+            auth: None,
+            decoded_path: None,
         }
     }
 
@@ -261,7 +317,7 @@ mod tests {
     fn dispatch_first_match_wins() {
         struct StatusHandler(u16, &'static str);
         impl Handler for StatusHandler {
-            fn handle(&self, ctx: &mut Context) -> Result<()> {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
                 ctx.response = Response::new(self.0, self.1).header("Content-Length", "0");
                 Ok(())
             }
@@ -288,7 +344,7 @@ mod tests {
     // Minimal fallback handler that writes 200
     struct OkFallbackHandler;
     impl Handler for OkFallbackHandler {
-        fn handle(&self, ctx: &mut Context) -> Result<()> {
+        fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
             ctx.response = Response::new(200, "OK")
                 .header("Content-Length", "8")
                 .body(b"fallback".to_vec());
@@ -418,6 +474,188 @@ mod tests {
             body, "Not Found\n",
             "NotFoundHandler body must end with newline, got: {:?}",
             body
+        );
+    }
+
+    // --- Prefix route tests (Phase 21: PLUG-02, PLUG-04) ---
+
+    #[test]
+    fn add_prefix_registers_prefix_route() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        assert_eq!(
+            router.prefix_routes.len(),
+            1,
+            "expected 1 prefix route after add_prefix"
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_matches_starts_with() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "prefix /s should match /s/abc, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_exact_prefix_matches() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/s");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "prefix /s should match exact /s, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_no_match_returns_404() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/other");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "prefix /s should not match /other, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_exact_route_wins_over_prefix_route() {
+        struct ExactHandler;
+        impl Handler for ExactHandler {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add("GET", "/health", ExactHandler).unwrap();
+        router.add_prefix("/h", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/health");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 201"),
+            "exact /health should win over prefix /h, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_first_match_wins() {
+        struct SecondHandler;
+        impl Handler for SecondHandler {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        router.add_prefix("/s", SecondHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 200"),
+            "first prefix registration should win, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_longer_prefix_wins_when_registered_first() {
+        struct LongPrefixHandler;
+        impl Handler for LongPrefixHandler {
+            fn handle(&self, ctx: &mut Context) -> HandlerResult<()> {
+                ctx.response = Response::new(201, "Created").header("Content-Length", "0");
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add_prefix("/s/featured", LongPrefixHandler).unwrap();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/s/featured/item");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 201"),
+            "longer prefix /s/featured registered first should win, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_route_dotdot_returns_404() {
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/../s/abc");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "dotdot should be rejected before prefix matching, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_does_not_match_longer_segment() {
+        // Regression: /s must NOT match /static/index.html (segment-boundary check)
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/static/index.html");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "prefix /s must not match /static/index.html, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_with_fallback_unmatched_goes_to_fallback() {
+        let mut router = Router::new().set_fallback(OkFallbackHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
+        let mut ctx = make_ctx(RequestMethod::Get, "/other");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.contains("fallback"),
+            "unmatched prefix should fall through to fallback, got: {:?}",
+            output
         );
     }
 }

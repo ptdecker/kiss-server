@@ -1,6 +1,6 @@
 # CI/CD Pipeline
 
-kiss-server uses GitHub Actions for continuous integration and continuous deployment.
+The kiss-server uses GitHub Actions for continuous integration and continuous deployment.
 
 ## How CI Works
 
@@ -95,6 +95,34 @@ aws cloudfront get-invalidation \
 
 Status progresses from `InProgress` to `Completed`. You can also verify by checking that
 `https://www.ptodd.org/` serves the updated content after deployment.
+
+## Production Runtime Configuration
+
+The production systemd unit (written by `scripts/install-kiss-server.sh`) starts the server with
+`--config`:
+
+```
+ExecStart=/usr/local/bin/kiss-server --config /etc/kiss-server/kiss-server.toml --port 8080
+```
+
+The installation script also writes `/etc/kiss-server/kiss-server.toml`:
+
+```toml
+[server]
+default_root = "/var/www/ptodd.org"
+
+[[plugin]]
+name = "url-shortener"
+```
+
+This means the `kiss-url-shortener` plugin is active in production after running
+`scripts/install-kiss-server.sh`. The three hardcoded seed short codes (`/s/gh`, `/s/rs`, `/s/hn`)
+are available immediately on startup.
+
+The CD pipeline deploys only the binary — the config file on EC2 is written once by the installation
+script and persists across deployments. To change the plugin configuration, update
+`/etc/kiss-server/kiss-server.toml` on the EC2 instance directly, then restart the service, or
+re-run `scripts/install-kiss-server.sh` to reset it to the canonical config.
 
 ## Checking EC2 Health
 
