@@ -126,6 +126,7 @@ mod tests {
             },
             response: Response::new(200, "OK"),
             auth: None,
+            decoded_path: None,
         }
     }
 
@@ -139,6 +140,7 @@ mod tests {
             },
             response: Response::new(200, "OK"),
             auth: None,
+            decoded_path: None,
         }
     }
 

@@ -27,13 +27,14 @@ impl UrlShortener {
 
 impl Handler for UrlShortener {
     fn handle(&self, ctx: &mut Context) -> Result<()> {
-        // Extract short code from path: /s/{code}
+        // Extract short code by stripping the plugin's own prefix + "/".
+        let prefix_slash = format!("{}/", self.path_prefix());
         let code = ctx
             .request
             .target
             .decoded_path()
             .ok()
-            .and_then(|p| p.strip_prefix("/s/").map(str::to_string));
+            .and_then(|p| p.strip_prefix(prefix_slash.as_str()).map(str::to_string));
 
         let store = self.store.read().unwrap();
         match code.and_then(|c| store.get(&c).cloned()) {

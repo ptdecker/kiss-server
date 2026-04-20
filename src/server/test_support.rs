@@ -33,6 +33,7 @@ pub fn test_context(method: &str, path: &str) -> Context {
         },
         response: Response::new(200, "OK"),
         auth: None,
+        decoded_path: None,
     }
 }
 
@@ -53,6 +54,7 @@ pub fn test_context_with_headers(method: &str, path: &str, headers: &[(&str, &st
         },
         response: Response::new(200, "OK"),
         auth: None,
+        decoded_path: None,
     }
 }
 

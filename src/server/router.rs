@@ -71,8 +71,8 @@ impl Router {
     pub fn add_prefix(&mut self, prefix: impl Into<String>, handler: impl Handler + 'static) {
         let prefix = prefix.into();
         assert!(
-            !prefix.is_empty(),
-            "plugin prefix must be non-empty (starts_with(\"\") matches all paths)"
+            !prefix.is_empty() && prefix != "/",
+            "plugin prefix must be non-empty and not '/' (both match all paths)"
         );
         self.prefix_routes.push((prefix, Box::new(handler)));
     }
@@ -86,26 +86,35 @@ impl Router {
     /// NotFoundHandler (404) when no fallback is registered. Returns `Ok(())` for all cases
     /// including rejection — never returns `Err` for path rejection (callers map `Err` to 500).
     pub fn dispatch(&self, ctx: &mut Context) -> Result<()> {
-        let Ok(decoded) = ctx.request.target.decoded_path() else {
-            return NotFoundHandler
-                .handle(ctx)
-                .map_err(|e| Error::InvalidRequest(e.to_string()));
-        };
+        // Reuse cached decoded path from middleware if available; decode once otherwise.
+        if ctx.decoded_path.is_none() {
+            match ctx.request.target.decoded_path() {
+                Ok(d) => ctx.decoded_path = Some(d),
+                Err(_) => {
+                    return NotFoundHandler
+                        .handle(ctx)
+                        .map_err(|e| Error::InvalidRequest(e.to_string()));
+                }
+            }
+        }
+        let decoded = ctx.decoded_path.as_deref().unwrap();
         if decoded.split('/').any(|c| c == "..") {
             return NotFoundHandler
                 .handle(ctx)
                 .map_err(|e| Error::InvalidRequest(e.to_string()));
         }
         for (route_method, route_path, handler) in &self.routes {
-            if route_method == &ctx.request.method && route_path.as_str() == decoded.as_str() {
+            if route_method == &ctx.request.method && route_path.as_str() == decoded {
                 return handler
                     .handle(ctx)
                     .map_err(|e| Error::InvalidRequest(e.to_string()));
             }
         }
-        // Prefix routes: checked after exact matches, before fallback (PLUG-04)
+        // Prefix routes: checked after exact matches, before fallback (PLUG-04).
+        // Segment-boundary match: prefix "/s" matches "/s" and "/s/..." but not "/static".
         for (prefix, handler) in &self.prefix_routes {
-            if decoded.starts_with(prefix.as_str()) {
+            let p = prefix.as_str();
+            if decoded == p || decoded.starts_with(&format!("{}/", p)) {
                 return handler
                     .handle(ctx)
                     .map_err(|e| Error::InvalidRequest(e.to_string()));
@@ -170,6 +179,7 @@ mod tests {
             },
             response: Response::new(200, "OK"),
             auth: None,
+            decoded_path: None,
         }
     }
 
@@ -605,6 +615,23 @@ mod tests {
         assert!(
             output.starts_with("HTTP/1.1 404"),
             "dotdot should be rejected before prefix matching, got: {:?}",
+            output
+        );
+    }
+
+    #[test]
+    fn dispatch_prefix_does_not_match_longer_segment() {
+        // Regression: /s must NOT match /static/index.html (segment-boundary check)
+        let mut router = Router::new();
+        router.add_prefix("/s", OkHandler);
+        let mut ctx = make_ctx(RequestMethod::Get, "/static/index.html");
+        router.dispatch(&mut ctx).unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        ctx.response.write_to(&mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+            output.starts_with("HTTP/1.1 404"),
+            "prefix /s must not match /static/index.html, got: {:?}",
             output
         );
     }

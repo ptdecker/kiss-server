@@ -276,6 +276,8 @@ pub struct Context {
     pub response: Response,
     #[allow(dead_code)]
     pub auth: Option<AuthClaims>,
+    /// Cached percent-decoded path. Populated on first decode; reused by subsequent layers.
+    pub decoded_path: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -330,6 +332,7 @@ pub mod test_support {
             },
             response: Response::new(200, "OK"),
             auth: None,
+            decoded_path: None,
         }
     }
 
@@ -351,6 +354,7 @@ pub mod test_support {
             },
             response: Response::new(200, "OK"),
             auth: None,
+            decoded_path: None,
         }
     }
 }

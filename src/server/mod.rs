@@ -246,6 +246,7 @@ fn handle_connection(
         request,
         response: Response::new(200, "OK"),
         auth: None,
+        decoded_path: None,
     };
 
     // Run a middleware chain before dispatch (MIDL-01).

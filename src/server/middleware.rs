@@ -76,12 +76,15 @@ impl MiddlewareChain {
     /// Returns `ShortCircuit` if any middleware short-circuited — `ctx.response`
     /// is already populated by the middleware that stopped the chain.
     pub fn run(&self, ctx: &mut Context) -> MiddlewareResult {
-        // Decode a path for exemption check — same API as router::dispatch()
-        let decoded = match ctx.request.target.decoded_path() {
-            Ok(d) => d,
-            Err(_) => return MiddlewareResult::Continue, // let router handle malformed paths
-        };
-        if self.public_routes.iter().any(|p| p == decoded.as_str()) {
+        // Decode path once and cache on ctx; router reuses the cached value.
+        if ctx.decoded_path.is_none() {
+            match ctx.request.target.decoded_path() {
+                Ok(d) => ctx.decoded_path = Some(d),
+                Err(_) => return MiddlewareResult::Continue, // let router handle malformed paths
+            }
+        }
+        let decoded = ctx.decoded_path.as_deref().unwrap();
+        if self.public_routes.iter().any(|p| p == decoded) {
             return MiddlewareResult::Continue;
         }
         for m in &self.middleware {
