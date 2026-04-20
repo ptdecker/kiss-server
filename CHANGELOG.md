@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-04-20
+
+### Changed
+
+- Removed `AuthMiddleware` from the default middleware chain — the site is intentionally public
+  and has no content requiring authentication yet; the auth gate was blocking all traffic after
+  the v1.5.0 deploy
+- Removed `KISS_SKIP_AUTH` escape hatch from `main.rs` (was a workaround for the above)
+
+### Auth Infrastructure
+
+The `AuthMiddleware`, `MiddlewareChain`, and `ctx.auth: Option<AuthClaims>` remain in place
+and are fully tested. Auth will be wired back into the chain when the first plugin requiring
+it ships (AUTH-02 strategy unchanged).
+
 ## [1.5.0] - 2026-04-16
 
 ### Added

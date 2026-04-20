@@ -14,6 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[allow(unused_imports)]
 pub use auth::AuthMiddleware;
 #[allow(unused_imports)]
 pub use context::AuthClaims;

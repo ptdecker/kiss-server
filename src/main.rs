@@ -7,7 +7,7 @@ use kiss_url_shortener::UrlShortener;
 use log::info;
 
 use logger::SimpleLogger;
-use server::{AuthMiddleware, MiddlewareChain, Router, Server};
+use server::{MiddlewareChain, Router, Server};
 
 mod args;
 mod config;
@@ -130,17 +130,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let skip_auth = std::env::var("KISS_SKIP_AUTH")
-        .map(|v| !matches!(v.to_ascii_lowercase().as_str(), "0" | "false" | "no"))
-        .unwrap_or(false);
-    let middleware_chain = if skip_auth {
-        info!("KISS_SKIP_AUTH set — auth middleware disabled (dev mode only)");
-        MiddlewareChain::new().public_routes(&[])
-    } else {
-        MiddlewareChain::new()
-            .add(AuthMiddleware::new())
-            .public_routes(&["/health", "/favicon.ico"])
-    };
+    let middleware_chain = MiddlewareChain::new();
 
     Server::new(&addr)?
         .with_router(router)
