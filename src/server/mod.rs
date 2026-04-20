@@ -596,7 +596,7 @@ mod tests {
         let p = UrlShortener::new(&config);
         let prefix = p.path_prefix().to_string();
         let mut router = Router::new();
-        router.add_prefix(prefix, p);
+        router.add_prefix(prefix, p).unwrap();
 
         let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
@@ -641,7 +641,7 @@ mod tests {
         let p = UrlShortener::new(&config);
         let prefix = p.path_prefix().to_string();
         let mut router = Router::new();
-        router.add_prefix(prefix, p);
+        router.add_prefix(prefix, p).unwrap();
 
         let chain = MiddlewareChain::new()
             .add(AuthMiddleware::new())
@@ -690,7 +690,7 @@ mod tests {
         router
             .add("GET", "/health", crate::handlers::RootHandler)
             .unwrap();
-        router.add_prefix(prefix, p);
+        router.add_prefix(prefix, p).unwrap();
 
         // No auth middleware -- just verify routing
         let mw = Arc::new(MiddlewareChain::new());

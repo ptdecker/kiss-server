@@ -11,7 +11,7 @@ use super::{
 /// `NotFoundHandler` (404) when no fallback is registered.
 pub struct Router {
     routes: Vec<(RequestMethod, String, Box<dyn Handler>)>,
-    prefix_routes: Vec<(String, Box<dyn Handler>)>,
+    prefix_routes: Vec<(String, String, Box<dyn Handler>)>,
     fallback: Option<Box<dyn Handler>>,
 }
 
@@ -68,13 +68,21 @@ impl Router {
     /// tried in registration order; the first match wins (PLUG-04). Register more-specific prefixes
     /// before less-specific ones.
     #[cfg_attr(not(test), allow(dead_code))]
-    pub fn add_prefix(&mut self, prefix: impl Into<String>, handler: impl Handler + 'static) {
+    pub fn add_prefix(
+        &mut self,
+        prefix: impl Into<String>,
+        handler: impl Handler + 'static,
+    ) -> Result<()> {
         let prefix = prefix.into();
-        assert!(
-            !prefix.is_empty() && prefix != "/",
-            "plugin prefix must be non-empty and not '/' (both match all paths)"
-        );
-        self.prefix_routes.push((prefix, Box::new(handler)));
+        if prefix.is_empty() || prefix == "/" {
+            return Err(Error::InvalidRequest(
+                "plugin prefix must be non-empty and not '/' (both match all paths)".to_string(),
+            ));
+        }
+        let prefix_slash = format!("{}/", prefix);
+        self.prefix_routes
+            .push((prefix, prefix_slash, Box::new(handler)));
+        Ok(())
     }
 
     /// Dispatch the request in `ctx` to the first matching handler.
@@ -112,9 +120,8 @@ impl Router {
         }
         // Prefix routes: checked after exact matches, before fallback (PLUG-04).
         // Segment-boundary match: prefix "/s" matches "/s" and "/s/..." but not "/static".
-        for (prefix, handler) in &self.prefix_routes {
-            let p = prefix.as_str();
-            if decoded == p || decoded.starts_with(&format!("{}/", p)) {
+        for (p, p_slash, handler) in &self.prefix_routes {
+            if decoded == p.as_str() || decoded.starts_with(p_slash.as_str()) {
                 return handler
                     .handle(ctx)
                     .map_err(|e| Error::InvalidRequest(e.to_string()));
@@ -475,7 +482,7 @@ mod tests {
     #[test]
     fn add_prefix_registers_prefix_route() {
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         assert_eq!(
             router.prefix_routes.len(),
             1,
@@ -486,7 +493,7 @@ mod tests {
     #[test]
     fn dispatch_prefix_route_matches_starts_with() {
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -502,7 +509,7 @@ mod tests {
     #[test]
     fn dispatch_prefix_route_exact_prefix_matches() {
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/s");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -518,7 +525,7 @@ mod tests {
     #[test]
     fn dispatch_prefix_route_no_match_returns_404() {
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/other");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -542,7 +549,7 @@ mod tests {
         }
         let mut router = Router::new();
         router.add("GET", "/health", ExactHandler).unwrap();
-        router.add_prefix("/h", OkHandler);
+        router.add_prefix("/h", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/health");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -565,8 +572,8 @@ mod tests {
             }
         }
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
-        router.add_prefix("/s", SecondHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
+        router.add_prefix("/s", SecondHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/s/abc");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -589,8 +596,8 @@ mod tests {
             }
         }
         let mut router = Router::new();
-        router.add_prefix("/s/featured", LongPrefixHandler);
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s/featured", LongPrefixHandler).unwrap();
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/s/featured/item");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -606,7 +613,7 @@ mod tests {
     #[test]
     fn dispatch_prefix_route_dotdot_returns_404() {
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/../s/abc");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -623,7 +630,7 @@ mod tests {
     fn dispatch_prefix_does_not_match_longer_segment() {
         // Regression: /s must NOT match /static/index.html (segment-boundary check)
         let mut router = Router::new();
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/static/index.html");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();
@@ -639,7 +646,7 @@ mod tests {
     #[test]
     fn dispatch_prefix_with_fallback_unmatched_goes_to_fallback() {
         let mut router = Router::new().set_fallback(OkFallbackHandler);
-        router.add_prefix("/s", OkHandler);
+        router.add_prefix("/s", OkHandler).unwrap();
         let mut ctx = make_ctx(RequestMethod::Get, "/other");
         router.dispatch(&mut ctx).unwrap();
         let mut buf: Vec<u8> = Vec::new();

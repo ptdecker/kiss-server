@@ -16,10 +16,8 @@ use super::{
 /// The Rust server trusts it because only CloudFront can reach the origin.
 /// Direct-to-origin access bypasses auth — accepted because an EC2 security group
 /// restricts port 80 to CloudFront IP ranges only (Phase 17, T-22-01).
-#[allow(dead_code)]
 pub struct AuthMiddleware;
 
-#[allow(dead_code)]
 impl AuthMiddleware {
     pub fn new() -> Self {
         AuthMiddleware
@@ -42,6 +40,7 @@ impl Middleware for AuthMiddleware {
                     .header("Content-Type", "text/plain")
                     .header("Content-Length", &content_length)
                     .header("Connection", "close")
+                    .header("WWW-Authenticate", "Bearer realm=\"kiss-server\"")
                     .body(body);
                 MiddlewareResult::ShortCircuit
             }
@@ -75,6 +74,10 @@ mod tests {
         let result = mw.run(&mut ctx);
         assert!(matches!(result, MiddlewareResult::ShortCircuit));
         assert_eq!(ctx.response.status(), 401);
+        assert!(
+            ctx.response.has_header("WWW-Authenticate"),
+            "401 must include WWW-Authenticate header (RFC 7235)"
+        );
     }
 
     #[test]
@@ -85,6 +88,10 @@ mod tests {
         let result = mw.run(&mut ctx);
         assert!(matches!(result, MiddlewareResult::ShortCircuit));
         assert_eq!(ctx.response.status(), 401);
+        assert!(
+            ctx.response.has_header("WWW-Authenticate"),
+            "401 must include WWW-Authenticate header (RFC 7235)"
+        );
     }
 
     #[test]
@@ -95,6 +102,10 @@ mod tests {
         let result = mw.run(&mut ctx);
         assert!(matches!(result, MiddlewareResult::ShortCircuit));
         assert_eq!(ctx.response.status(), 401);
+        assert!(
+            ctx.response.has_header("WWW-Authenticate"),
+            "401 must include WWW-Authenticate header (RFC 7235)"
+        );
     }
 
     #[test]

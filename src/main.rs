@@ -117,7 +117,7 @@ fn main() -> Result<()> {
                 let prefix = p.path_prefix().to_string();
                 let name = p.name().to_string();
                 info!("  plugin: {} -> {}", name, prefix);
-                router.add_prefix(prefix, p);
+                router.add_prefix(prefix, p)?;
             }
             other => {
                 return Err(format!(
@@ -130,7 +130,10 @@ fn main() -> Result<()> {
         }
     }
 
-    let middleware_chain = if std::env::var("KISS_SKIP_AUTH").is_ok() {
+    let skip_auth = std::env::var("KISS_SKIP_AUTH")
+        .map(|v| !matches!(v.to_ascii_lowercase().as_str(), "0" | "false" | "no"))
+        .unwrap_or(false);
+    let middleware_chain = if skip_auth {
         info!("KISS_SKIP_AUTH set — auth middleware disabled (dev mode only)");
         MiddlewareChain::new().public_routes(&[])
     } else {

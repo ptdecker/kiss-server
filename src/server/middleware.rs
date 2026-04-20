@@ -3,7 +3,6 @@
 use super::context::Context;
 
 /// Return type for middleware: continue the chain or short-circuit.
-#[allow(dead_code)]
 pub enum MiddlewareResult {
     /// Continue to the next middleware (or to dispatch if last).
     Continue,
@@ -20,7 +19,6 @@ pub enum MiddlewareResult {
 /// # Thread Safety
 /// Middleware must be `Send + Sync` because it is shared across worker threads
 /// via `Arc<MiddlewareChain>`.
-#[allow(dead_code)]
 pub trait Middleware: Send + Sync {
     fn run(&self, ctx: &mut Context) -> MiddlewareResult;
 }
@@ -30,7 +28,6 @@ pub trait Middleware: Send + Sync {
 /// Routes on the exemption list bypass all middleware. Non-exempt routes pass
 /// through each middleware in registration order; the first `ShortCircuit`
 /// stops the chain.
-#[allow(dead_code)]
 pub struct MiddlewareChain {
     middleware: Vec<Box<dyn Middleware>>,
     public_routes: Vec<String>,
@@ -45,7 +42,6 @@ impl std::fmt::Debug for MiddlewareChain {
     }
 }
 
-#[allow(dead_code)]
 impl MiddlewareChain {
     /// Create an empty middleware chain.
     pub fn new() -> Self {
@@ -76,7 +72,7 @@ impl MiddlewareChain {
     /// Returns `ShortCircuit` if any middleware short-circuited — `ctx.response`
     /// is already populated by the middleware that stopped the chain.
     pub fn run(&self, ctx: &mut Context) -> MiddlewareResult {
-        // Decode path once and cache on ctx; router reuses the cached value.
+        // Decode a path once and cache on ctx; router reuses the cached value.
         if ctx.decoded_path.is_none() {
             match ctx.request.target.decoded_path() {
                 Ok(d) => ctx.decoded_path = Some(d),
