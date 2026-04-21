@@ -127,7 +127,91 @@ pub fn parse(token: &str) -> Result<JwtParts, JwtError> {
     })
 }
 
-// extract() is implemented in Plan 03.
+/// Stage 3: base64url-decode the payload and extract the four required claims.
+///
+/// Validates that `exp` is in the future relative to `SystemTime::now()`.
+/// Presence and parseability are checked for `sub`, `iss`, `aud`, but their
+/// values are NOT validated against any configured value — Phase 25's
+/// `AuthMiddleware` performs issuer/audience matching.
+///
+/// # Scanner limitations
+///
+/// The JSON scanner assumes compact output with no whitespace before `:`
+/// (matches Auth0's JWT format). Claim string values must not contain
+/// an escaped `"` (UUIDs, URLs, and short identifiers in Auth0 payloads
+/// never do). A fully general JSON parser is intentionally not built per
+/// D-03 (no crates.io JSON deps).
+///
+/// # Errors
+/// - `JwtError::Base64DecodeError` if payload is not valid base64url
+/// - `JwtError::InvalidClaim(_)` if decoded bytes are not UTF-8 or exp is non-numeric
+/// - `JwtError::MissingClaim(name)` if any of sub/exp/iss/aud is absent
+/// - `JwtError::TokenExpired` if exp is earlier than the current system time
+pub fn extract(payload_b64: &str) -> Result<JwtClaims, JwtError> {
+    let bytes = crate::base64::decode(payload_b64).map_err(|_| JwtError::Base64DecodeError)?;
+    let json = std::str::from_utf8(&bytes).map_err(|_| JwtError::InvalidClaim("payload"))?;
+
+    let sub = extract_string_claim(json, "sub")
+        .ok_or(JwtError::MissingClaim("sub"))?
+        .to_string();
+    let iss = extract_string_claim(json, "iss")
+        .ok_or(JwtError::MissingClaim("iss"))?
+        .to_string();
+    let aud = extract_string_claim(json, "aud")
+        .ok_or(JwtError::MissingClaim("aud"))?
+        .to_string();
+
+    // exp is a numeric claim. If the key is absent → MissingClaim.
+    // If the key is present but the value is not a parseable u64 → InvalidClaim.
+    let exp_present = json.contains("\"exp\":");
+    let exp = match extract_u64_claim(json, "exp") {
+        Some(v) => v,
+        None if exp_present => return Err(JwtError::InvalidClaim("exp")),
+        None => return Err(JwtError::MissingClaim("exp")),
+    };
+
+    // Validate exp is in the future.
+    // Use checked_add to handle exp values (e.g. u64::MAX) that would overflow
+    // SystemTime arithmetic. An overflow means the timestamp is astronomically
+    // far in the future — treat as valid (not expired).
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now();
+    match UNIX_EPOCH.checked_add(Duration::from_secs(exp)) {
+        Some(exp_time) if exp_time < now => return Err(JwtError::TokenExpired),
+        _ => {}
+    }
+
+    Ok(JwtClaims { sub, exp, iss, aud })
+}
+
+/// Find `"key":"value"` and return the `value` slice (no escape handling).
+///
+/// Returns `None` if the key is absent or the value is not a quoted string.
+fn extract_string_claim<'a>(json: &'a str, key: &str) -> Option<&'a str> {
+    let needle = format!("\"{}\":\"", key);
+    let start = json.find(&needle)? + needle.len();
+    let end = json[start..].find('"')? + start;
+    Some(&json[start..end])
+}
+
+/// Find `"key":<digits>` and parse to u64.
+///
+/// Returns `None` if the key is absent or the value is not purely digits.
+fn extract_u64_claim(json: &str, key: &str) -> Option<u64> {
+    let needle = format!("\"{}\":", key);
+    let start = json.find(&needle)? + needle.len();
+    // Reject string-typed values like "exp":"123" — the next char must be a digit.
+    let rest = &json[start..];
+    if !rest.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits_end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .map(|n| start + n)
+        .unwrap_or(json.len());
+    json[start..digits_end].parse().ok()
+}
+
 // verify() is implemented in Plan 04.
 
 #[cfg(test)]
@@ -256,25 +340,37 @@ mod tests {
     #[test]
     fn extract_missing_sub_returns_err() {
         let json = r#"{"exp":18446744073709551615,"iss":"x","aud":"y"}"#;
-        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("sub")));
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::MissingClaim("sub"))
+        );
     }
 
     #[test]
     fn extract_missing_exp_returns_err() {
         let json = r#"{"sub":"u","iss":"x","aud":"y"}"#;
-        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("exp")));
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::MissingClaim("exp"))
+        );
     }
 
     #[test]
     fn extract_missing_iss_returns_err() {
         let json = r#"{"sub":"u","exp":18446744073709551615,"aud":"y"}"#;
-        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("iss")));
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::MissingClaim("iss"))
+        );
     }
 
     #[test]
     fn extract_missing_aud_returns_err() {
         let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"x"}"#;
-        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("aud")));
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::MissingClaim("aud"))
+        );
     }
 
     #[test]
@@ -287,7 +383,10 @@ mod tests {
     #[test]
     fn extract_exp_not_parseable_returns_invalid_claim() {
         let json = r#"{"sub":"u","exp":"not-a-number","iss":"x","aud":"y"}"#;
-        assert_eq!(extract(&payload_b64(json)), Err(JwtError::InvalidClaim("exp")));
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::InvalidClaim("exp"))
+        );
     }
 
     #[test]
