@@ -235,4 +235,93 @@ mod tests {
             "must return Err, not panic, on unicode input"
         );
     }
+
+    // --- Plan 03: extract() tests ---
+
+    // Helper: build a base64url-encoded payload from raw JSON.
+    fn payload_b64(json: &str) -> String {
+        crate::base64::encode(json.as_bytes())
+    }
+
+    #[test]
+    fn extract_returns_all_four_claims() {
+        let json = r#"{"sub":"user123","exp":18446744073709551615,"iss":"https://example.auth0.com/","aud":"myapp"}"#;
+        let claims = extract(&payload_b64(json)).unwrap();
+        assert_eq!(claims.sub, "user123");
+        assert_eq!(claims.exp, u64::MAX);
+        assert_eq!(claims.iss, "https://example.auth0.com/");
+        assert_eq!(claims.aud, "myapp");
+    }
+
+    #[test]
+    fn extract_missing_sub_returns_err() {
+        let json = r#"{"exp":18446744073709551615,"iss":"x","aud":"y"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("sub")));
+    }
+
+    #[test]
+    fn extract_missing_exp_returns_err() {
+        let json = r#"{"sub":"u","iss":"x","aud":"y"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("exp")));
+    }
+
+    #[test]
+    fn extract_missing_iss_returns_err() {
+        let json = r#"{"sub":"u","exp":18446744073709551615,"aud":"y"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("iss")));
+    }
+
+    #[test]
+    fn extract_missing_aud_returns_err() {
+        let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"x"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::MissingClaim("aud")));
+    }
+
+    #[test]
+    fn extract_exp_in_past_returns_token_expired() {
+        // exp=1 is Jan 1 1970 00:00:01 UTC — always in the past.
+        let json = r#"{"sub":"u","exp":1,"iss":"x","aud":"y"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::TokenExpired));
+    }
+
+    #[test]
+    fn extract_exp_not_parseable_returns_invalid_claim() {
+        let json = r#"{"sub":"u","exp":"not-a-number","iss":"x","aud":"y"}"#;
+        assert_eq!(extract(&payload_b64(json)), Err(JwtError::InvalidClaim("exp")));
+    }
+
+    #[test]
+    fn extract_invalid_base64_returns_base64_decode_error() {
+        assert_eq!(extract("!!!"), Err(JwtError::Base64DecodeError));
+    }
+
+    #[test]
+    fn extract_invalid_utf8_returns_err() {
+        // base64url of [0xff, 0xfe, 0xfd] — not valid UTF-8
+        let payload = crate::base64::encode(&[0xff, 0xfe, 0xfd]);
+        assert!(extract(&payload).is_err());
+    }
+
+    #[test]
+    fn extract_accepts_arbitrary_iss_and_aud_values() {
+        // Phase 24 does NOT validate iss/aud values — only presence.
+        let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"anything","aud":"whatever"}"#;
+        let claims = extract(&payload_b64(json)).unwrap();
+        assert_eq!(claims.iss, "anything");
+        assert_eq!(claims.aud, "whatever");
+    }
+
+    #[test]
+    fn extract_accepts_large_exp_values() {
+        let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"x","aud":"y"}"#;
+        let claims = extract(&payload_b64(json)).unwrap();
+        assert_eq!(claims.exp, u64::MAX);
+    }
+
+    #[test]
+    fn extract_does_not_panic_on_malformed_json() {
+        let malformed = crate::base64::encode(b"{not json");
+        let result = extract(&malformed);
+        assert!(result.is_err(), "malformed JSON must return Err, not panic");
+    }
 }
