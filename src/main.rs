@@ -10,8 +10,10 @@ use logger::SimpleLogger;
 use server::{MiddlewareChain, Router, Server};
 
 mod args;
+mod base64; // Phase 24 Plan 01
 mod config;
 mod handlers;
+mod jwt; // Phase 24 Plan 01
 mod logger;
 mod server;
 mod time;
