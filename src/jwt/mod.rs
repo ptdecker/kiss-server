@@ -187,6 +187,14 @@ pub fn extract(payload_b64: &str) -> Result<JwtClaims, JwtError> {
 /// Find `"key":"value"` and return the `value` slice (no escape handling).
 ///
 /// Returns `None` if the key is absent or the value is not a quoted string.
+///
+/// # Limitations
+///
+/// Searches for the first occurrence of `"key":"` anywhere in `json`, including
+/// inside the string value of a prior claim. Claim values must not contain the
+/// substring `"<key>":"` for any claim key being extracted (e.g., the `sub` value
+/// must not contain `"iss":"`). Auth0-issued tokens satisfy this constraint;
+/// custom issuers may not.
 fn extract_string_claim<'a>(json: &'a str, key: &str) -> Option<&'a str> {
     let needle = format!("\"{}\":\"", key);
     let start = json.find(&needle)? + needle.len();
