@@ -330,17 +330,28 @@ fn spki_to_rsa_pubkey(spki: &[u8]) -> Result<&[u8], JwtError> {
 /// RS256 (RSASSA-PKCS1-v1_5 with SHA-256) via `ring`.
 /// Keys smaller than 2048 bits or larger than 8192 bits are rejected.
 ///
-/// # Note on `alg` header
-/// This function does NOT read the JWT header's `alg` field; it always
-/// uses RS256. The caller (Phase 25 `AuthMiddleware`) MUST validate
-/// `alg == "RS256"` before calling this function to prevent algorithm
-/// confusion attacks.
+/// # Algorithm confusion prevention
+/// This function reads the JWT header's `alg` field and rejects any token
+/// that does not declare `"alg":"RS256"`. This makes the defense unconditional
+/// and removes the need for callers to validate the algorithm themselves.
 ///
 /// # Errors
+/// - `JwtError::Base64DecodeError` if the header component is not valid base64url
+/// - `JwtError::MalformedToken` if the header bytes are not valid UTF-8
+/// - `JwtError::MissingClaim("alg")` if the header lacks an `alg` field
+/// - `JwtError::SignatureInvalid` if `alg != "RS256"`, signature does not match,
+///   key is wrong, or key size is outside the accepted range
 /// - `JwtError::InvalidKey` if `spki_der` is not parseable SPKI DER
-/// - `JwtError::SignatureInvalid` if signature does not match, key is wrong,
-///   or key size is outside the accepted range
 pub fn verify(parts: &JwtParts, spki_der: &[u8]) -> Result<(), JwtError> {
+    // Reject non-RS256 alg unconditionally to prevent algorithm confusion attacks.
+    let header_bytes =
+        crate::base64::decode(&parts.header_b64).map_err(|_| JwtError::Base64DecodeError)?;
+    let header_json = std::str::from_utf8(&header_bytes).map_err(|_| JwtError::MalformedToken)?;
+    let alg = extract_string_claim(header_json, "alg").ok_or(JwtError::MissingClaim("alg"))?;
+    if alg != "RS256" {
+        return Err(JwtError::SignatureInvalid);
+    }
+
     // Strip the SPKI wrapper — ring's UnparsedPublicKey for RSA requires
     // RSAPublicKey DER (inner SEQUENCE of modulus+exponent), not SPKI.
     let rsa_pubkey = spki_to_rsa_pubkey(spki_der)?;
@@ -850,6 +861,46 @@ mod tests {
         let (_token, spki, mut parts) = build_signed_jwt(header, &future_payload());
         parts.header_b64 = crate::base64::encode(br#"{"alg":"none","typ":"JWT"}"#);
         assert_eq!(verify(&parts, &spki), Err(JwtError::SignatureInvalid));
+    }
+
+    #[test]
+    fn verify_rejects_alg_none() {
+        // A token that declares alg=none must be rejected before the signature
+        // check — this is the algorithm confusion defense.
+        let (_token, spki, _parts) =
+            build_signed_jwt(r#"{"alg":"RS256","typ":"JWT"}"#, &future_payload());
+        let parts = JwtParts {
+            header_b64: crate::base64::encode(br#"{"alg":"none","typ":"JWT"}"#),
+            payload_b64: crate::base64::encode(future_payload().as_bytes()),
+            signature: vec![],
+        };
+        assert_eq!(verify(&parts, &spki), Err(JwtError::SignatureInvalid));
+    }
+
+    #[test]
+    fn verify_rejects_alg_hs256() {
+        // An HS256 token must be rejected; only RS256 is accepted.
+        let (_token, spki, _parts) =
+            build_signed_jwt(r#"{"alg":"RS256","typ":"JWT"}"#, &future_payload());
+        let parts = JwtParts {
+            header_b64: crate::base64::encode(br#"{"alg":"HS256","typ":"JWT"}"#),
+            payload_b64: crate::base64::encode(future_payload().as_bytes()),
+            signature: vec![0u8; 32],
+        };
+        assert_eq!(verify(&parts, &spki), Err(JwtError::SignatureInvalid));
+    }
+
+    #[test]
+    fn verify_rejects_missing_alg_claim() {
+        // A header with no alg field must return MissingClaim.
+        let (_token, spki, _parts) =
+            build_signed_jwt(r#"{"alg":"RS256","typ":"JWT"}"#, &future_payload());
+        let parts = JwtParts {
+            header_b64: crate::base64::encode(br#"{"typ":"JWT"}"#),
+            payload_b64: crate::base64::encode(future_payload().as_bytes()),
+            signature: vec![],
+        };
+        assert_eq!(verify(&parts, &spki), Err(JwtError::MissingClaim("alg")));
     }
 
     #[test]
