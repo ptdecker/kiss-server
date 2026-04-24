@@ -280,6 +280,10 @@ fn spki_to_rsa_pubkey(spki: &[u8]) -> Result<&[u8], JwtError> {
     if alg_tag != 0x30 {
         return Err(JwtError::InvalidKey);
     }
+    // Algorithm identifier must fit inside the outer SEQUENCE.
+    if alg_end > outer_end {
+        return Err(JwtError::InvalidKey);
+    }
 
     // BIT STRING containing the subjectPublicKey
     let (bs_tag, bs_start, bs_end) = read_tlv(spki, alg_end)?;
