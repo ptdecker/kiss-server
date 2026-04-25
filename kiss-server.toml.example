@@ -1,0 +1,49 @@
+# kiss-server example configuration
+# Copy to kiss-server.toml and edit for your deployment.
+# Pass via: kiss-server --config /etc/kiss-server.toml
+
+# ---------------- [server] ----------------
+# Global server settings.
+[server]
+# Optional fallback root for requests whose Host header does not match any [[vhost]] block.
+# default_root = "/var/www/default"
+
+# ----- Auth (Phase 25) -----
+# All three of jwks_url, issuer, audience must be set together. Omit all three to
+# disable auth entirely (v1.5.x backward-compatible behavior).
+#
+# jwks_url:  Auth0 publishes RSA public keys at https://<tenant>.auth0.com/.well-known/jwks.json
+# issuer:    Must equal the `iss` claim Auth0 puts in JWTs (typically the tenant URL with trailing /)
+# audience:  Must equal the `aud` claim — the Auth0 application's identifier (NOT the client ID for SPAs;
+#            usually the API audience configured in Auth0 dashboard).
+#
+# jwks_url = "https://YOUR-TENANT.auth0.com/.well-known/jwks.json"
+# issuer   = "https://YOUR-TENANT.auth0.com/"
+# audience = "https://api.example.com"
+
+# ---------------- [[vhost]] ----------------
+# Each [[vhost]] block declares one Host header -> document root mapping.
+# Auth is OPT-IN per vhost: omit login_url + public_paths to keep the vhost fully public.
+
+# Example 1: auth-protected vhost
+# [[vhost]]
+# domain = "ptodd.org"
+# root   = "/var/www/ptodd.org"
+# # All paths require a valid JWT EXCEPT those listed in public_paths.
+# # Unauthenticated requests to a protected path receive a 302 to login_url.
+# login_url    = "https://YOUR-TENANT.auth0.com/authorize?client_id=...&response_type=token&audience=..."
+# public_paths = ["/", "/about", "/favicon.ico", "/robots.txt"]
+
+# Example 2: public vhost (no auth, original v1.5.x behavior)
+[[vhost]]
+domain = "example.org"
+root   = "/var/www/example.org"
+
+# ---------------- [[plugin]] ----------------
+# Each [[plugin]] block activates one plugin.
+# The url-shortener plugin serves /s/<code> -> stored URL.
+[[plugin]]
+name = "url-shortener"
+# Optional plugin-specific keys (passed as PluginConfig.extra to the plugin):
+# base_url    = "https://example.org"
+# max_entries = "10000"

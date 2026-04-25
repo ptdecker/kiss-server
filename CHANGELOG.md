@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-04-24
+
+### Added
+
+- **Auth wiring (Phase 25):** End-to-end JWT-based authentication. The server now
+  fetches the Auth0 JWKS endpoint at startup, validates RS256 signatures via `ring`,
+  and verifies `iss` + `aud` claims against configured values. Unauthenticated requests
+  to protected paths receive a 302 redirect to the vhost's configured `login_url`.
+- **`src/jwks/` module:** Fetches JWKS JSON via `/usr/bin/curl` subprocess (no new
+  crate dependency), parses the response with the same hand-rolled idiom as
+  `src/jwt/`, base64url-decodes the modulus and exponent, and assembles SPKI DER
+  ready for `jwt::verify`. Single-key extraction; first `"alg":"RS256"` key wins
+  (key rotation by `kid` deferred).
+- **`[server]` config keys:** `jwks_url`, `issuer`, `audience`. All three required
+  together; partial configuration produces a clear startup error.
+- **`[[vhost]]` config keys:** `login_url` (string) and `public_paths` (string array).
+  Either both or neither must be present per vhost; mixing produces a parse error
+  naming the offending vhost.
+- **`AuthMiddleware` JWT pipeline:** Replaces the v1.5.x stub. Reads `Authorization:
+  Bearer <token>`, runs `jwt::parse -> jwt::verify -> jwt::extract`, validates `iss`
+  and `aud`, and populates `ctx.auth = Some(AuthClaims { user_id: claims.sub })` on
+  success.
+- **`kiss-server.toml.example`** documenting all Phase 25 config fields.
+
+### Changed
+
+- **`AuthMiddleware` no longer trusts `X-Authenticated-User`.** That header was a
+  Lambda@Edge integration artifact (now superseded). Existing v1.5.x deployments
+  that don't add `[server] jwks_url`+`issuer`+`audience` see no behavior change —
+  the middleware is conditionally added.
+- **`src/jwt/mod.rs::wrap_rsa_pubkey_as_spki` and `encode_der_length`** promoted
+  from `#[cfg(test)]` test helpers to `pub(crate)` so `src/jwks/` can reuse them
+  without code duplication.
+- **`build_dispatcher` returns `Option<Config>`** as a third tuple element so
+  `main()` can pass the parsed config to `build_auth_middleware`.
+
+### Security
+
+- **iss + aud validation:** Without these checks, a JWT signed by the SAME Auth0
+  tenant but for a DIFFERENT application would be accepted. Phase 25 closes this
+  gap explicitly. Tested by `auth_protected_path_wrong_issuer_redirects` and
+  `auth_protected_path_wrong_audience_redirects` in `src/server/auth.rs`.
+- **Algorithm confirmation defense:** Inherited from Phase 24 (`jwt::verify` enforces
+  `alg == "RS256"` unconditionally per D-24-04-04). The middleware does not need to
+  re-check.
+
+### Deferred
+
+- **JWKS key rotation by `kid`:** The first `"alg":"RS256"` key in the JWKS response
+  is used. Auth0 publishes the active signing key first during rotation; the failure
+  mode (visible 302 loop after rotation until restart) is operator-debuggable.
+- **Cookie-based JWT transport:** Only `Authorization: Bearer <token>` is read.
+  Browser-native flows that store JWTs in cookies are not supported.
+- **Phase 26 (Live Auth Validation):** End-to-end ptodd.org deployment with a real
+  Auth0 tenant happens next.
+
 ## [1.5.1] - 2026-04-20
 
 ### Changed
