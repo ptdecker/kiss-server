@@ -319,6 +319,58 @@ fn spki_to_rsa_pubkey(spki: &[u8]) -> Result<&[u8], JwtError> {
     Ok(&spki[rsa_start..bs_end])
 }
 
+/// Wrap an RSAPublicKey DER slice in a SPKI envelope.
+///
+/// Used by `src/jwks/mod.rs` to package the modulus + exponent extracted from a
+/// JWKS JSON response into the SPKI format that `verify()` accepts.
+/// Also used in `#[cfg(test)]` to construct SPKI fixtures from RSAPublicKey DER.
+pub(crate) fn wrap_rsa_pubkey_as_spki(rsa_pubkey: &[u8]) -> Vec<u8> {
+    // Algorithm identifier: SEQUENCE { OID 1.2.840.113549.1.1.1, NULL }
+    //   30 0D 06 09 2A 86 48 86 F7 0D 01 01 01 05 00  (15 bytes)
+    const ALG_ID: [u8; 15] = [
+        0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05, 0x00,
+    ];
+
+    // Build BIT STRING: 0x03 <len-encoding> 0x00 <rsa_pubkey>
+    let bs_content_len = 1 + rsa_pubkey.len();
+    let bs_len_encoding = encode_der_length(bs_content_len);
+    let mut bit_string = Vec::with_capacity(1 + bs_len_encoding.len() + 1 + rsa_pubkey.len());
+    bit_string.push(0x03);
+    bit_string.extend_from_slice(&bs_len_encoding);
+    bit_string.push(0x00);
+    bit_string.extend_from_slice(rsa_pubkey);
+
+    // Outer SEQUENCE: 0x30 <len-encoding> <alg_id> <bit_string>
+    let inner_len = ALG_ID.len() + bit_string.len();
+    let outer_len_encoding = encode_der_length(inner_len);
+    let mut spki = Vec::with_capacity(1 + outer_len_encoding.len() + inner_len);
+    spki.push(0x30);
+    spki.extend_from_slice(&outer_len_encoding);
+    spki.extend_from_slice(&ALG_ID);
+    spki.extend_from_slice(&bit_string);
+    spki
+}
+
+/// Encode a length for DER TLV. Short form (< 128) is one byte;
+/// long form uses `0x80 | n` + n bytes big-endian. Supports up to 3-byte lengths
+/// (0xFFFFFF), which is far more than any RSA 2048/4096 SPKI requires.
+pub(crate) fn encode_der_length(len: usize) -> Vec<u8> {
+    if len < 0x80 {
+        vec![len as u8]
+    } else if len < 0x100 {
+        vec![0x81, len as u8]
+    } else if len < 0x10000 {
+        vec![0x82, (len >> 8) as u8, len as u8]
+    } else if len < 0x1000000 {
+        vec![0x83, (len >> 16) as u8, (len >> 8) as u8, len as u8]
+    } else {
+        // Defensive: an RSA SPKI larger than 16 MB is not a real-world key.
+        // Cap at the 3-byte form rather than panicking; callers will produce
+        // a malformed DER if they actually need this, and ring will reject.
+        vec![0x83, 0xFF, 0xFF, 0xFF]
+    }
+}
+
 /// Stage 2: verify the RS256 signature over the JWT's signing input.
 ///
 /// Accepts the RSA public key as **SubjectPublicKeyInfo (SPKI) DER bytes** —
@@ -742,50 +794,6 @@ mod tests {
         0x83, 0xd9,
     ];
 
-    /// Wrap an RSAPublicKey DER slice in a SPKI envelope for testing.
-    /// Returns the SPKI bytes that `verify()` accepts as its public key argument.
-    fn wrap_rsa_pubkey_as_spki(rsa_pubkey: &[u8]) -> Vec<u8> {
-        // Algorithm identifier: SEQUENCE { OID 1.2.840.113549.1.1.1, NULL }
-        //   30 0D 06 09 2A 86 48 86 F7 0D 01 01 01 05 00  (15 bytes)
-        const ALG_ID: [u8; 15] = [
-            0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05,
-            0x00,
-        ];
-
-        // Build BIT STRING: 0x03 <len-encoding> 0x00 <rsa_pubkey>
-        let bs_content_len = 1 + rsa_pubkey.len();
-        let bs_len_encoding = encode_der_length(bs_content_len);
-        let mut bit_string = Vec::with_capacity(1 + bs_len_encoding.len() + 1 + rsa_pubkey.len());
-        bit_string.push(0x03);
-        bit_string.extend_from_slice(&bs_len_encoding);
-        bit_string.push(0x00);
-        bit_string.extend_from_slice(rsa_pubkey);
-
-        // Outer SEQUENCE: 0x30 <len-encoding> <alg_id> <bit_string>
-        let inner_len = ALG_ID.len() + bit_string.len();
-        let outer_len_encoding = encode_der_length(inner_len);
-        let mut spki = Vec::with_capacity(1 + outer_len_encoding.len() + inner_len);
-        spki.push(0x30);
-        spki.extend_from_slice(&outer_len_encoding);
-        spki.extend_from_slice(&ALG_ID);
-        spki.extend_from_slice(&bit_string);
-        spki
-    }
-
-    /// Encode a length for DER TLV. Short form (< 128) is one byte;
-    /// long form uses `0x80 | n` + n bytes big-endian.
-    fn encode_der_length(len: usize) -> Vec<u8> {
-        if len < 0x80 {
-            vec![len as u8]
-        } else if len < 0x100 {
-            vec![0x81, len as u8]
-        } else if len < 0x10000 {
-            vec![0x82, (len >> 8) as u8, len as u8]
-        } else {
-            panic!("test helper: length too large for this helper");
-        }
-    }
-
     /// Sign a synthetic JWT header+payload with the embedded test key.
     /// Returns (token_string, spki_der_of_public_key, JwtParts).
     fn build_signed_jwt(header_json: &str, payload_json: &str) -> (String, Vec<u8>, JwtParts) {
@@ -954,5 +962,31 @@ mod tests {
     fn verify_signature_uses_only_domain_types() {
         // Compile-time proof that verify() only uses domain types in its API.
         let _: fn(&JwtParts, &[u8]) -> Result<(), JwtError> = verify;
+    }
+
+    // --- Plan 25-02: encode_der_length tests ---
+
+    #[test]
+    fn encode_der_length_short_form() {
+        assert_eq!(encode_der_length(0), vec![0]);
+        assert_eq!(encode_der_length(0x7F), vec![0x7F]);
+    }
+
+    #[test]
+    fn encode_der_length_one_byte_long_form() {
+        assert_eq!(encode_der_length(0x80), vec![0x81, 0x80]);
+        assert_eq!(encode_der_length(0xFF), vec![0x81, 0xFF]);
+    }
+
+    #[test]
+    fn encode_der_length_two_byte_long_form() {
+        assert_eq!(encode_der_length(0x100), vec![0x82, 0x01, 0x00]);
+        assert_eq!(encode_der_length(0xFFFF), vec![0x82, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn encode_der_length_three_byte_form() {
+        assert_eq!(encode_der_length(0x10000), vec![0x83, 0x01, 0x00, 0x00]);
+        assert_eq!(encode_der_length(0xFFFFFF), vec![0x83, 0xFF, 0xFF, 0xFF]);
     }
 }
