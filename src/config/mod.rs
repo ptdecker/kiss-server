@@ -5,9 +5,12 @@ use std::fmt;
 // ===== Types =====
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct VhostEntry {
     pub domain: String,
     pub root: String,
+    pub login_url: Option<String>, // ACFG-01
+    pub public_paths: Vec<String>, // ACFG-02; empty Vec = no exemptions
 }
 
 #[derive(Debug, Clone)]
@@ -17,8 +20,12 @@ pub struct PluginConfig {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct ServerConfig {
     pub default_root: Option<String>,
+    pub jwks_url: Option<String>, // CRYP-05 (used in Plan 05)
+    pub issuer: Option<String>,   // JWT iss validation (used in Plan 04)
+    pub audience: Option<String>, // JWT aud validation (used in Plan 04)
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +68,36 @@ enum Section {
     Server,
     Vhost,
     Plugin,
+}
+
+/// Parses a TOML inline array value `["a", "b", "c"]` into Vec<String>.
+/// Only single-line arrays are supported. Each element must be a quoted string.
+#[allow(dead_code)]
+fn parse_inline_array(value_raw: &str, lineno: usize) -> Result<Vec<String>, ConfigError> {
+    if !value_raw.starts_with('[') || !value_raw.ends_with(']') {
+        return Err(ConfigError::Parse(format!(
+            "line {}: inline array must start with '[' and end with ']', got: {}",
+            lineno + 1,
+            value_raw
+        )));
+    }
+    let inner = value_raw[1..value_raw.len() - 1].trim();
+    if inner.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut result = Vec::new();
+    for element in inner.split(',') {
+        let el = element.trim();
+        if el.len() < 2 || !el.starts_with('"') || !el.ends_with('"') {
+            return Err(ConfigError::Parse(format!(
+                "line {}: array element must be a non-empty quoted string, got: {}",
+                lineno + 1,
+                el
+            )));
+        }
+        result.push(el[1..el.len() - 1].to_string());
+    }
+    Ok(result)
 }
 
 /// Parses a `key = "value"` line. Returns `(key, value)` with quotes stripped.
@@ -147,6 +184,8 @@ impl Config {
                 current_vhost = Some(VhostEntry {
                     domain: String::new(),
                     root: String::new(),
+                    login_url: None,
+                    public_paths: Vec::new(),
                 });
                 section = Section::Vhost;
             } else if line == "[[plugin]]" {
@@ -637,5 +676,70 @@ name = "url-shortener"
             cfg.server.default_root,
             Some("/var/www/default".to_string())
         );
+    }
+
+    // ===== parse_inline_array tests (Task 1, Phase 25 ACFG-02) =====
+
+    #[test]
+    fn parse_inline_array_empty() {
+        let result = parse_inline_array("[]", 0);
+        assert!(
+            result.is_ok(),
+            "empty array should parse, got: {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), Vec::<String>::new());
+    }
+
+    #[test]
+    fn parse_inline_array_single_element() {
+        let result = parse_inline_array("[\"/\"]", 0);
+        assert!(
+            result.is_ok(),
+            "single-element array should parse, got: {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), vec!["/".to_string()]);
+    }
+
+    #[test]
+    fn parse_inline_array_three_elements() {
+        let result = parse_inline_array("[\"/\", \"/about\", \"/static\"]", 0);
+        assert!(
+            result.is_ok(),
+            "three-element array should parse, got: {:?}",
+            result
+        );
+        assert_eq!(result.unwrap(), vec!["/", "/about", "/static"]);
+    }
+
+    #[test]
+    fn parse_inline_array_unclosed() {
+        let result = parse_inline_array("[", 0);
+        assert!(result.is_err(), "unclosed array should be an error");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("inline array"),
+            "error should mention 'inline array', got: {:?}",
+            msg
+        );
+    }
+
+    #[test]
+    fn parse_inline_array_unquoted_element() {
+        let result = parse_inline_array("[foo]", 0);
+        assert!(result.is_err(), "unquoted element should be an error");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("quoted string"),
+            "error should mention 'quoted string', got: {:?}",
+            msg
+        );
+    }
+
+    #[test]
+    fn parse_inline_array_trailing_comma() {
+        let result = parse_inline_array("[\"/\",]", 0);
+        assert!(result.is_err(), "trailing comma should be an error");
     }
 }
