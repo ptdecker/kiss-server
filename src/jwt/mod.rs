@@ -427,7 +427,7 @@ pub fn verify(parts: &JwtParts, spki_der: &[u8]) -> Result<(), JwtError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     // --- Task 1: Type surface smoke tests ---
@@ -709,7 +709,7 @@ mod tests {
     // NOTE: Generated via:
     //   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -pkeyopt rsa_keygen_pubexp:65537 \
     //     -outform der 2>/dev/null | openssl pkcs8 -topk8 -nocrypt -outform der | xxd -i
-    const TEST_PRIVATE_KEY_PKCS8_DER: &[u8] = &[
+    pub(crate) const TEST_PRIVATE_KEY_PKCS8_DER: &[u8] = &[
         0x30, 0x82, 0x04, 0xbd, 0x02, 0x01, 0x00, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
         0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00, 0x04, 0x82, 0x04, 0xa7, 0x30, 0x82, 0x04, 0xa3,
         0x02, 0x01, 0x00, 0x02, 0x82, 0x01, 0x01, 0x00, 0x9e, 0x1f, 0x20, 0xa3, 0x50, 0x3e, 0xb3,
@@ -796,7 +796,10 @@ mod tests {
 
     /// Sign a synthetic JWT header+payload with the embedded test key.
     /// Returns (token_string, spki_der_of_public_key, JwtParts).
-    fn build_signed_jwt(header_json: &str, payload_json: &str) -> (String, Vec<u8>, JwtParts) {
+    pub(crate) fn build_signed_jwt(
+        header_json: &str,
+        payload_json: &str,
+    ) -> (String, Vec<u8>, JwtParts) {
         use ring::{rand, rsa, signature};
 
         let key_pair = rsa::KeyPair::from_pkcs8(TEST_PRIVATE_KEY_PKCS8_DER)
@@ -832,8 +835,60 @@ mod tests {
         (token, spki, parts)
     }
 
+    /// Extract the RSA modulus (n) and public exponent (e) bytes from the embedded
+    /// test PKCS8 key. Used by `crate::jwks::tests` for the round-trip test.
+    /// Strips the DER leading-zero prefix so the bytes match what JWKS JSON encodes.
+    pub(crate) fn embedded_test_modulus_exponent() -> (Vec<u8>, Vec<u8>) {
+        let key_pair = ring::rsa::KeyPair::from_pkcs8(TEST_PRIVATE_KEY_PKCS8_DER)
+            .expect("embedded test key must be valid");
+        // `as_ref()` returns RSAPublicKey DER: SEQUENCE { INTEGER n, INTEGER e }
+        let rsa_der = key_pair.public().as_ref();
+
+        // Minimal DER length reader.
+        fn read_len(buf: &[u8], pos: usize) -> (usize, usize) {
+            let b = buf[pos];
+            if b < 0x80 {
+                return (b as usize, pos + 1);
+            }
+            let n = (b & 0x7f) as usize;
+            let mut len = 0usize;
+            for i in 0..n {
+                len = (len << 8) | (buf[pos + 1 + i] as usize);
+            }
+            (len, pos + 1 + n)
+        }
+
+        // Parse outer SEQUENCE
+        assert_eq!(rsa_der[0], 0x30, "expected SEQUENCE tag");
+        let (_, seq_start) = read_len(rsa_der, 1);
+
+        // Parse INTEGER n
+        assert_eq!(rsa_der[seq_start], 0x02, "expected INTEGER tag for n");
+        let (n_len, n_start) = read_len(rsa_der, seq_start + 1);
+        let n_end = n_start + n_len;
+        // Strip DER leading-zero sign prefix if present
+        let n_bytes = if rsa_der[n_start] == 0x00 {
+            rsa_der[n_start + 1..n_end].to_vec()
+        } else {
+            rsa_der[n_start..n_end].to_vec()
+        };
+
+        // Parse INTEGER e
+        let e_pos = n_end;
+        assert_eq!(rsa_der[e_pos], 0x02, "expected INTEGER tag for e");
+        let (e_len, e_start) = read_len(rsa_der, e_pos + 1);
+        let e_end = e_start + e_len;
+        let e_bytes = if !rsa_der[e_start..e_end].is_empty() && rsa_der[e_start] == 0x00 {
+            rsa_der[e_start + 1..e_end].to_vec()
+        } else {
+            rsa_der[e_start..e_end].to_vec()
+        };
+
+        (n_bytes, e_bytes)
+    }
+
     /// Build a payload JSON with exp set far in the future.
-    fn future_payload() -> String {
+    pub(crate) fn future_payload() -> String {
         r#"{"sub":"user-from-test","exp":18446744073709551615,"iss":"https://test.auth0.com/","aud":"test-app"}"#.to_string()
     }
 
