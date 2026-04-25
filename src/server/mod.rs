@@ -15,7 +15,7 @@ use std::{
 };
 
 #[allow(unused_imports)]
-pub use auth::AuthMiddleware;
+pub use auth::{AuthMiddleware, VhostAuthConfig};
 #[allow(unused_imports)]
 pub use context::AuthClaims;
 pub use context::Context;

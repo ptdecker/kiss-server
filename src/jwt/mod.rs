@@ -8,12 +8,11 @@
 //! All cryptographically sensitive operations delegate to `ring`. All parsing
 //! (base64url, JWT splitting, JSON field extraction) is hand-rolled per D-03.
 //!
-//! # Dead-code suppression
+//! # Dead-code note
 //!
 //! Under Rust edition 2024, `dead_code` warnings fire on `pub` items that are
-//! not yet reachable from `main.rs`. Phase 25 will wire `AuthMiddleware` into
-//! the dispatch chain at which point this attribute can be removed.
-#![allow(dead_code)]
+//! not yet reachable from `main.rs`. AuthMiddleware is now wired into the
+//! dispatch chain in Plan 05, making all jwt:: items reachable.
 
 use std::fmt;
 

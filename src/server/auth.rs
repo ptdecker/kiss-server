@@ -4,12 +4,11 @@
 //!
 //! Phase 25 wiring: see `src/main.rs::build_auth_middleware`.
 //!
-//! # Dead-code suppression
+//! # Dead-code note
 //!
 //! Under Rust edition 2024, `dead_code` warnings fire on `pub` items that are
-//! not yet reachable from `main.rs`. Plan 05 will wire `AuthMiddleware` into
-//! `main.rs` at which point this attribute can be removed.
-#![allow(dead_code)]
+//! not yet reachable from `main.rs`. AuthMiddleware is now wired into
+//! `main.rs` in Plan 05, making all items in this module reachable.
 
 use std::collections::HashMap;
 
@@ -40,6 +39,7 @@ pub struct VhostAuthConfig {
 /// endpoint at startup (see `src/jwks/mod.rs`). It is hot-path read-only;
 /// the entire middleware is `Send + Sync` because all fields are immutable
 /// after construction.
+#[derive(Debug)]
 pub struct AuthMiddleware {
     spki_der: Vec<u8>,
     vhost_configs: HashMap<String, VhostAuthConfig>,

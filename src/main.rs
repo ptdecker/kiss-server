@@ -26,7 +26,8 @@ pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Builds a [`handlers::VhostDispatcher`] from a parsed arg map, returning it alongside any
-/// plugin configs parsed from the TOML config file.
+/// plugin configs parsed from the TOML config file, and the parsed [`config::Config`] if
+/// `--config` was used (returns `None` for the config in `--root` mode).
 ///
 /// - `--config <path>`: loads TOML config and creates per-domain handlers.
 /// - `--root <path>`: synthesizes a dispatcher with a single default handler (backward compat).
@@ -34,7 +35,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// - Neither flag: returns an error.
 fn build_dispatcher(
     parsed: &std::collections::HashMap<String, Option<String>>,
-) -> Result<(handlers::VhostDispatcher, Vec<config::PluginConfig>)> {
+) -> Result<(
+    handlers::VhostDispatcher,
+    Vec<config::PluginConfig>,
+    Option<config::Config>,
+)> {
     let has_config = args::has_flag(parsed, "--config");
     let has_root = args::has_flag(parsed, "--root");
 
@@ -76,9 +81,11 @@ fn build_dispatcher(
             })
             .transpose()?;
 
+        let plugins = config.plugins.clone();
         Ok((
             handlers::VhostDispatcher::new(vhosts, default_handler),
-            config.plugins,
+            plugins,
+            Some(config),
         ))
     } else if has_root {
         let root = args::get_path(parsed, "--root", args::PathKind::Dir)?;
@@ -89,10 +96,116 @@ fn build_dispatcher(
                 Some(handlers::StaticFileHandler::new(root)?),
             ),
             Vec::new(),
+            None,
         ))
     } else {
         Err("either --config <path> or --root <path> is required".into())
     }
+}
+
+/// Build an AuthMiddleware from the parsed config, or return None if auth is
+/// not configured (preserves v1.5.x backward compatibility — operators who haven't
+/// added auth fields to kiss-server.toml see no behavior change).
+///
+/// Auth requires THREE [server] fields together: jwks_url, issuer, audience.
+/// Each vhost may opt-in independently with login_url + public_paths.
+/// Mixing presence/absence of these fields produces a clear startup error
+/// (per ACFG-04 — fail loud at parse time, not at first request).
+fn build_auth_middleware(config: &config::Config) -> Result<Option<server::AuthMiddleware>> {
+    // Detect partial server-level auth config (all three or none)
+    let server_auth_keys = [
+        ("jwks_url", config.server.jwks_url.as_deref()),
+        ("issuer", config.server.issuer.as_deref()),
+        ("audience", config.server.audience.as_deref()),
+    ];
+    let present_count = server_auth_keys.iter().filter(|(_, v)| v.is_some()).count();
+
+    // Detect any vhost-level auth (login_url is the marker; public_paths consistency
+    // was enforced at parse time in commit_vhost — Plan 01 Task 2)
+    let any_vhost_has_auth = config.vhosts.iter().any(|v| v.login_url.is_some());
+
+    // Case A: nothing configured — auth fully disabled (v1.5.x compat)
+    if present_count == 0 && !any_vhost_has_auth {
+        info!("Auth disabled: no [server] jwks_url/issuer/audience and no vhost login_url");
+        return Ok(None);
+    }
+
+    // Case B: partial server auth config — fail loud
+    if present_count != 0 && present_count != 3 {
+        let missing: Vec<&str> = server_auth_keys
+            .iter()
+            .filter(|(_, v)| v.is_none())
+            .map(|(k, _)| *k)
+            .collect();
+        return Err(format!(
+            "auth misconfiguration: [server] requires all of jwks_url, issuer, audience together; missing: {missing:?}"
+        )
+        .into());
+    }
+
+    // Case C: vhost auth without server auth
+    if present_count == 0 && any_vhost_has_auth {
+        return Err(
+            "auth misconfiguration: at least one [[vhost]] has login_url but \
+            [server] is missing jwks_url/issuer/audience"
+                .into(),
+        );
+    }
+
+    // Case D: server auth without any vhost auth — allowed but useless; warn and proceed
+    if !any_vhost_has_auth {
+        log::warn!(
+            "Server auth fields configured but no [[vhost]] has login_url; \
+            AuthMiddleware will treat all requests as public"
+        );
+    }
+
+    // We're in case D or full config — proceed.
+    let jwks_url = config.server.jwks_url.as_deref().expect("checked above");
+    let issuer = config
+        .server
+        .issuer
+        .as_deref()
+        .expect("checked above")
+        .to_string();
+    let audience = config
+        .server
+        .audience
+        .as_deref()
+        .expect("checked above")
+        .to_string();
+
+    info!("Fetching JWKS from {jwks_url} ...");
+    let spki_der = crate::jwks::fetch_spki_der(jwks_url)
+        .map_err(|e| format!("JWKS fetch failed at startup: {e}"))?;
+    info!("JWKS fetched: {} byte SPKI", spki_der.len());
+
+    // Build per-vhost configs from vhosts that opted in
+    let mut vhost_configs = std::collections::HashMap::new();
+    for vhost in &config.vhosts {
+        if let Some(login_url) = vhost.login_url.as_deref() {
+            vhost_configs.insert(
+                vhost.domain.clone(),
+                server::VhostAuthConfig {
+                    login_url: login_url.to_string(),
+                    public_paths: vhost.public_paths.clone(),
+                },
+            );
+            info!(
+                "Auth: vhost '{}' protected; {} public path(s); login -> {}",
+                vhost.domain,
+                vhost.public_paths.len(),
+                login_url,
+            );
+        }
+    }
+
+    Ok(Some(server::AuthMiddleware::new(
+        spki_der,
+        vhost_configs,
+        issuer,
+        audience,
+    )))
 }
 
 fn main() -> Result<()> {
@@ -101,7 +214,7 @@ fn main() -> Result<()> {
     let parsed_args = args::parse(&raw_args);
     let port = args::get_parsed::<u16>(&parsed_args, "--port", DEFAULT_PORT)?;
     let addr = format!("0.0.0.0:{}", port);
-    let (dispatcher, plugin_configs) = build_dispatcher(&parsed_args)?;
+    let (dispatcher, plugin_configs, maybe_config) = build_dispatcher(&parsed_args)?;
     let mut router = Router::new().set_fallback(dispatcher);
 
     if !plugin_configs.is_empty() {
@@ -133,7 +246,14 @@ fn main() -> Result<()> {
         }
     }
 
-    let middleware_chain = MiddlewareChain::new();
+    let auth_middleware = match maybe_config.as_ref() {
+        Some(cfg) => build_auth_middleware(cfg)?,
+        None => None, // --root mode has no auth
+    };
+    let middleware_chain = match auth_middleware {
+        Some(mw) => MiddlewareChain::new().add(mw),
+        None => MiddlewareChain::new(),
+    };
 
     Server::new(&addr)?
         .with_router(router)
@@ -194,6 +314,11 @@ mod tests {
             "expected Ok with valid --root, got: {:?}",
             result
         );
+        let (_, _, maybe_config) = result.unwrap();
+        assert!(
+            maybe_config.is_none(),
+            "--root mode should return None config"
+        );
     }
 
     #[test]
@@ -227,6 +352,70 @@ mod tests {
             result.is_ok(),
             "expected Ok with valid --config, got: {:?}",
             result
+        );
+        let (_, _, maybe_config) = result.unwrap();
+        assert!(
+            maybe_config.is_some(),
+            "--config mode should return Some config"
+        );
+    }
+
+    // ========== build_auth_middleware() unit tests ==========
+
+    #[test]
+    fn build_auth_middleware_no_auth_config_returns_none() {
+        let cfg = config::Config {
+            server: config::ServerConfig::default(),
+            vhosts: vec![],
+            plugins: vec![],
+        };
+        let result = build_auth_middleware(&cfg);
+        assert!(matches!(result, Ok(None)), "no auth config -> Ok(None)");
+    }
+
+    #[test]
+    fn build_auth_middleware_partial_server_config_returns_err() {
+        let cfg = config::Config {
+            server: config::ServerConfig {
+                default_root: None,
+                jwks_url: Some("https://x.auth0.com/jwks.json".to_string()),
+                issuer: None,
+                audience: None,
+            },
+            vhosts: vec![],
+            plugins: vec![],
+        };
+        let result = build_auth_middleware(&cfg);
+        assert!(result.is_err(), "partial server auth config -> Err");
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("issuer"),
+            "error must name missing field 'issuer': {msg}"
+        );
+        assert!(
+            msg.contains("audience"),
+            "error must name missing field 'audience': {msg}"
+        );
+    }
+
+    #[test]
+    fn build_auth_middleware_vhost_auth_without_server_auth_returns_err() {
+        let cfg = config::Config {
+            server: config::ServerConfig::default(),
+            vhosts: vec![config::VhostEntry {
+                domain: "ptodd.org".to_string(),
+                root: "/var/www/ptodd.org".to_string(),
+                login_url: Some("https://x.auth0.com/login".to_string()),
+                public_paths: vec!["/".to_string()],
+            }],
+            plugins: vec![],
+        };
+        let result = build_auth_middleware(&cfg);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("login_url") && msg.contains("[server]"),
+            "error must mention vhost login_url and [server]: {msg}"
         );
     }
 }
