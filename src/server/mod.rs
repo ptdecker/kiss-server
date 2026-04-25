@@ -458,15 +458,71 @@ mod tests {
         );
     }
 
-    #[test]
-    fn middleware_short_circuit_returns_401_with_standard_headers() {
-        use crate::server::auth::AuthMiddleware;
+    /// Build an AuthMiddleware wired to "localhost" with no public paths and a
+    /// test login URL. Used by integration tests that need a configured middleware.
+    fn build_integration_test_middleware() -> crate::server::auth::AuthMiddleware {
+        use crate::server::auth::{AuthMiddleware, VhostAuthConfig};
+        use std::collections::HashMap;
 
+        let (n_bytes, e_bytes) = crate::jwt::tests::embedded_test_modulus_exponent();
+
+        fn der_integer(raw: &[u8]) -> Vec<u8> {
+            let needs_leading_zero = !raw.is_empty() && raw[0] >= 0x80;
+            let content_len = if needs_leading_zero {
+                raw.len() + 1
+            } else {
+                raw.len()
+            };
+            let len_enc = crate::jwt::encode_der_length(content_len);
+            let mut out = Vec::with_capacity(1 + len_enc.len() + content_len);
+            out.push(0x02);
+            out.extend_from_slice(&len_enc);
+            if needs_leading_zero {
+                out.push(0x00);
+            }
+            out.extend_from_slice(raw);
+            out
+        }
+
+        let n_der = der_integer(&n_bytes);
+        let e_der = der_integer(&e_bytes);
+        let mut rsa_pubkey = vec![0x30];
+        rsa_pubkey.extend_from_slice(&crate::jwt::encode_der_length(n_der.len() + e_der.len()));
+        rsa_pubkey.extend_from_slice(&n_der);
+        rsa_pubkey.extend_from_slice(&e_der);
+        let spki = crate::jwt::wrap_rsa_pubkey_as_spki(&rsa_pubkey);
+
+        let mut configs = HashMap::new();
+        configs.insert(
+            "localhost".to_string(),
+            VhostAuthConfig {
+                login_url: "https://test.auth0.com/login".to_string(),
+                public_paths: vec![],
+            },
+        );
+        AuthMiddleware::new(
+            spki,
+            configs,
+            "https://test.auth0.com/".to_string(),
+            "https://api.test.example.com".to_string(),
+        )
+    }
+
+    /// Build a JWT token signed with the embedded test key, valid for integration tests.
+    fn build_integration_test_jwt() -> String {
+        let header = r#"{"alg":"RS256","typ":"JWT"}"#;
+        let payload = r#"{"sub":"alice","exp":18446744073709551615,"iss":"https://test.auth0.com/","aud":"https://api.test.example.com"}"#;
+        let (token, _spki, _parts) = crate::jwt::tests::build_signed_jwt(header, payload);
+        token
+    }
+
+    #[test]
+    fn middleware_short_circuit_returns_302_with_standard_headers() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
-            // Request to /api/data WITHOUT X-Authenticated-User header
+            // Request to /api/data WITHOUT Authorization header
             client
                 .write_all(b"GET /api/data HTTP/1.1\r\nHost: localhost\r\n\r\n")
                 .unwrap();
@@ -477,14 +533,14 @@ mod tests {
         let (stream, _) = listener.accept().unwrap();
         let router = Arc::new(Router::new());
         let chain = MiddlewareChain::new()
-            .add(AuthMiddleware::new())
+            .add(build_integration_test_middleware())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
         handle_connection(stream, router, mw).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
-            response.contains("HTTP/1.1 401"),
-            "expected 401 for unauthenticated request, got: {:?}",
+            response.contains("HTTP/1.1 302"),
+            "expected 302 redirect for unauthenticated request, got: {:?}",
             response
         );
         assert!(
@@ -501,13 +557,11 @@ mod tests {
 
     #[test]
     fn middleware_exempt_route_bypasses_auth() {
-        use crate::server::auth::AuthMiddleware;
-
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
-            // Request to /health WITHOUT X-Authenticated-User header
+            // Request to /health WITHOUT Authorization header
             client
                 .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n")
                 .unwrap();
@@ -520,8 +574,9 @@ mod tests {
         router
             .add("GET", "/health", crate::handlers::RootHandler)
             .unwrap();
+        // /health is exempt via MiddlewareChain::public_routes (middleware never runs)
         let chain = MiddlewareChain::new()
-            .add(AuthMiddleware::new())
+            .add(build_integration_test_middleware())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
         handle_connection(stream, Arc::new(router), mw).unwrap();
@@ -535,18 +590,15 @@ mod tests {
 
     #[test]
     fn middleware_authenticated_request_reaches_handler() {
-        use crate::server::auth::AuthMiddleware;
+        let token = build_integration_test_jwt();
+        let auth_header = format!("Authorization: Bearer {token}");
+        let request = format!("GET / HTTP/1.1\r\nHost: localhost\r\n{auth_header}\r\n\r\n");
 
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
-            // Request WITH X-Authenticated-User header to a route that exists
-            client
-                .write_all(
-                    b"GET / HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
-                )
-                .unwrap();
+            client.write_all(request.as_bytes()).unwrap();
             let mut response = String::new();
             client.read_to_string(&mut response).unwrap_or(0);
             response
@@ -557,7 +609,7 @@ mod tests {
             .add("GET", "/", crate::handlers::RootHandler)
             .unwrap();
         let chain = MiddlewareChain::new()
-            .add(AuthMiddleware::new())
+            .add(build_integration_test_middleware())
             .public_routes(&["/health"]);
         let mw = Arc::new(chain);
         handle_connection(stream, Arc::new(router), mw).unwrap();
@@ -572,7 +624,6 @@ mod tests {
     // Checklist item 5: /s/* passes through auth middleware (not exempt)
     #[test]
     fn url_shortener_prefix_requires_auth() {
-        use crate::server::auth::AuthMiddleware;
         use kiss_plugin_sdk::KissPlugin;
         use kiss_url_shortener::UrlShortener;
 
@@ -580,7 +631,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
-            // GET /s/gh WITHOUT X-Authenticated-User header
+            // GET /s/gh WITHOUT Authorization header
             client
                 .write_all(b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\n\r\n")
                 .unwrap();
@@ -600,14 +651,14 @@ mod tests {
         router.add_prefix(prefix, p).unwrap();
 
         let chain = MiddlewareChain::new()
-            .add(AuthMiddleware::new())
+            .add(build_integration_test_middleware())
             .public_routes(&["/health", "/favicon.ico"]);
         let mw = Arc::new(chain);
         handle_connection(stream, Arc::new(router), mw).unwrap();
         let response = client_thread.join().unwrap();
         assert!(
-            response.contains("HTTP/1.1 401"),
-            "unauthenticated /s/gh should return 401 (D-08), got: {:?}",
+            response.contains("HTTP/1.1 302"),
+            "unauthenticated /s/gh should return 302 redirect to login, got: {:?}",
             response
         );
     }
@@ -615,20 +666,18 @@ mod tests {
     // Checklist item 5 (corollary): authenticated /s/gh reaches plugin and returns 302
     #[test]
     fn url_shortener_authenticated_request_returns_302() {
-        use crate::server::auth::AuthMiddleware;
         use kiss_plugin_sdk::KissPlugin;
         use kiss_url_shortener::UrlShortener;
+
+        let token = build_integration_test_jwt();
+        let auth_header = format!("Authorization: Bearer {token}");
+        let request = format!("GET /s/gh HTTP/1.1\r\nHost: localhost\r\n{auth_header}\r\n\r\n");
 
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client_thread = thread::spawn(move || {
             let mut client = TcpStream::connect(addr).unwrap();
-            // GET /s/gh WITH X-Authenticated-User header
-            client
-                .write_all(
-                    b"GET /s/gh HTTP/1.1\r\nHost: localhost\r\nX-Authenticated-User: alice\r\n\r\n",
-                )
-                .unwrap();
+            client.write_all(request.as_bytes()).unwrap();
             let mut response = String::new();
             client.read_to_string(&mut response).unwrap_or(0);
             response
@@ -645,7 +694,7 @@ mod tests {
         router.add_prefix(prefix, p).unwrap();
 
         let chain = MiddlewareChain::new()
-            .add(AuthMiddleware::new())
+            .add(build_integration_test_middleware())
             .public_routes(&["/health", "/favicon.ico"]);
         let mw = Arc::new(chain);
         handle_connection(stream, Arc::new(router), mw).unwrap();
