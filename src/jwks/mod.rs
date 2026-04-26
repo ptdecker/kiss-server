@@ -115,7 +115,15 @@ fn extract_rs256_key(json: &str) -> Result<(&str, &str), JwksError> {
     let mut search_from = 0;
     while let Some(rel_alg) = json[search_from..].find("\"alg\":\"RS256\"") {
         let alg_pos = search_from + rel_alg;
-        // Find the opening '{' before alg_pos
+        // Find the opening '{' before alg_pos using rfind.
+        //
+        // Assumption: base64url characters (A-Z, a-z, 0-9, -, _) do not include '{',
+        // so rfind('{') reliably finds the JWK object's opening brace for standard
+        // Auth0 JWKS fields (n, e, kty, use, kid). If Auth0 ever adds a nested-object
+        // field (e.g., "x5c":[...] or "extensions":{...}) BEFORE "alg" in the same
+        // JWK entry, rfind('{') would snap to that inner '{', causing n/e extraction
+        // to fail and returning KeyNotFound for this entry (graceful degradation).
+        // The while-loop advances past the entry and tries the next RS256 key.
         let Some(obj_start) = json[..alg_pos].rfind('{') else {
             break;
         };
@@ -222,6 +230,18 @@ mod tests {
             extract_rs256_key(json),
             Err(JwksError::KeyNotFound)
         ));
+    }
+
+    #[test]
+    fn extract_rs256_key_finds_key_with_x5c_array_after_alg() {
+        // "x5c" is a string array — its value contains '[' characters but NOT '{',
+        // so rfind('{') still correctly locates the JWK object boundary.
+        // This documents the safe boundary of the rfind assumption (WR-03).
+        let json =
+            r#"{"keys":[{"kty":"RSA","alg":"RS256","n":"abc","e":"AQAB","x5c":["MIIabc"]}]}"#;
+        let (n, e) = extract_rs256_key(json).expect("should find RS256 key with x5c present");
+        assert_eq!(n, "abc");
+        assert_eq!(e, "AQAB");
     }
 
     // --- der_integer ---
