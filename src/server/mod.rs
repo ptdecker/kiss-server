@@ -14,7 +14,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[allow(unused_imports)]
 pub use auth::{AuthMiddleware, VhostAuthConfig};
 #[allow(unused_imports)]
 pub use context::AuthClaims;
@@ -25,11 +24,11 @@ pub use handler::Handler;
 pub use kiss_plugin_sdk::Result as HandlerResult;
 use middleware::MiddlewareResult as MwResult;
 #[allow(unused_imports)]
-pub use middleware::{Middleware, MiddlewareChain, MiddlewareResult};
+pub use middleware::MiddlewareResult;
+pub use middleware::{Middleware, MiddlewareChain};
 use pool::ThreadPool;
 #[allow(unused_imports)]
 pub use request::Request;
-#[allow(unused_imports)]
 pub use request::RequestMethod;
 pub use response::Response;
 pub use router::Router;
