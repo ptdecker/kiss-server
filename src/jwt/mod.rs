@@ -156,9 +156,7 @@ pub fn extract(payload_b64: &str) -> Result<JwtClaims, JwtError> {
     let iss = extract_string_claim(json, "iss")
         .ok_or(JwtError::MissingClaim("iss"))?
         .to_string();
-    let aud = extract_string_claim(json, "aud")
-        .ok_or(JwtError::MissingClaim("aud"))?
-        .to_string();
+    let aud = extract_aud_claim(json).ok_or(JwtError::MissingClaim("aud"))?;
 
     // exp is a numeric claim. If the key is absent → MissingClaim.
     // If the key is present but the value is not a parseable u64 → InvalidClaim.
@@ -199,6 +197,25 @@ fn extract_string_claim<'a>(json: &'a str, key: &str) -> Option<&'a str> {
     let start = json.find(&needle)? + needle.len();
     let end = json[start..].find('"')? + start;
     Some(&json[start..end])
+}
+
+/// Extract the `aud` claim, handling both plain string and single-element array forms.
+///
+/// Auth0 M2M tokens use `"aud":"<value>"` (plain string). SPA flows and multi-audience
+/// grants use `"aud":["<value>"]` (JSON array). Both forms are valid per RFC 7519 §4.1.3.
+/// This function accepts either and returns the audience value as an owned `String`.
+///
+/// Returns `None` if the `aud` key is absent entirely.
+fn extract_aud_claim(json: &str) -> Option<String> {
+    // Try plain string form first: "aud":"value"
+    if let Some(v) = extract_string_claim(json, "aud") {
+        return Some(v.to_string());
+    }
+    // Try single-element array form: "aud":["value"]
+    let needle = "\"aud\":[\"";
+    let start = json.find(needle)? + needle.len();
+    let end = json[start..].find('"')? + start;
+    Some(json[start..end].to_string())
 }
 
 /// Find `"key":<digits>` and parse to u64.
@@ -619,6 +636,24 @@ pub(crate) mod tests {
         let claims = extract(&payload_b64(json)).unwrap();
         assert_eq!(claims.iss, "anything");
         assert_eq!(claims.aud, "whatever");
+    }
+
+    #[test]
+    fn extract_accepts_array_aud_single_element() {
+        // Auth0 SPA/multi-audience grants use "aud":["value"] — must be accepted.
+        let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"x","aud":["myapp"]}"#;
+        let claims = extract(&payload_b64(json)).unwrap();
+        assert_eq!(claims.aud, "myapp");
+    }
+
+    #[test]
+    fn extract_array_aud_missing_returns_err() {
+        // No aud field at all — still MissingClaim, even with array syntax absent.
+        let json = r#"{"sub":"u","exp":18446744073709551615,"iss":"x"}"#;
+        assert_eq!(
+            extract(&payload_b64(json)),
+            Err(JwtError::MissingClaim("aud"))
+        );
     }
 
     #[test]
