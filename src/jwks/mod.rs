@@ -16,10 +16,6 @@
 //! - JWKS endpoint must be HTTPS reachable from the EC2 host with `curl` available
 //!   at `/usr/bin/curl` (default on Amazon Linux 2).
 
-// Phase 25 scope note: items here become reachable when Plan 05 wires
-// `build_auth_middleware` into `main.rs`. Until then, suppress dead_code.
-#![allow(dead_code)]
-
 use std::fmt;
 
 /// All error cases surfaced when fetching or decoding a JWKS response.
