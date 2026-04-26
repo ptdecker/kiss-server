@@ -160,7 +160,8 @@ fn build_auth_middleware(config: &config::Config) -> Result<Option<server::AuthM
         );
     }
 
-    // We're in case D or full config — proceed.
+    // At this point present_count == 3. If no vhost has auth (case D), we warned above
+    // and still build the middleware (it will treat all requests as public).
     let jwks_url = config.server.jwks_url.as_deref().expect("checked above");
     let issuer = config
         .server
